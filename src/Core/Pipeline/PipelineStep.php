@@ -1,5 +1,7 @@
 <?php
+namespace Core\Pipeline;
+
 interface PipelineStep
 {
-    public function run(PipelineContext $context): PipelineResult;
+    public function execute(PipelineContext $context): PipelineResult;
 }
