@@ -15,13 +15,13 @@ final class DefaultExecutor implements Executor
         private TimeBox $timeBox
     ) {}
 
-    public function execute(Job $job): ExecutionReport
+    public function execute(Job $job): JobReport
     {
         $context = new PipelineContext();
 
         try {
             if ($this->timeBox->isExpired()) {
-                return new ExecutionReport(
+                return new JobReport(
                     new JobResult(JobState::TIMED_OUT, 'Execution time exceeded before start')
                 );
             }
@@ -29,27 +29,27 @@ final class DefaultExecutor implements Executor
             $job->pipeline()->run($context);
 
             if ($this->timeBox->isExpired()) {
-                return new ExecutionReport(
+                return new JobReport(
                     new JobResult(JobState::TIMED_OUT, 'Execution time exceeded after pipeline run')
                 );
             }
 
-            return new ExecutionReport(
+            return new JobReport(
                 new JobResult(JobState::COMPLETED)
             );
 
         } catch (RecoverableException $e) {
-            return new ExecutionReport(
+            return new JobReport(
                 new JobResult(JobState::FAILED, $e->getMessage())
             );
 
         } catch (FatalException $e) {
-            return new ExecutionReport(
+            return new JobReport(
                 new JobResult(JobState::FAILED, $e->getMessage())
             );
 
         } catch (\Throwable $e) {
-            return new ExecutionReport(
+            return new JobReport(
                 new JobResult(JobState::FAILED, 'Unhandled executor error')
             );
         }

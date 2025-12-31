@@ -19,7 +19,7 @@ final class DefaultExecutorTest extends TestCase
             new class implements PipelineStep {
                 public function execute(PipelineContext $context): PipelineResult {
                     $context->set('done', true);
-                    return new PipelineResult();
+                    return PipelineResult::success();
                 }
             }
         ]);

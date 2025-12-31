@@ -4,7 +4,7 @@ namespace Core\Execution;
 
 use Core\Job\JobResult;
 
-final class ExecutionReport
+final class JobReport
 {
     public function __construct(
         private JobResult $result

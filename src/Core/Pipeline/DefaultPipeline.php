@@ -36,6 +36,6 @@ final class DefaultPipeline implements Pipeline
             }
         }
 
-        return new PipelineResult();
+        return PipelineResult::success();
     }
 }

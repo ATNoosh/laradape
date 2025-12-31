@@ -14,13 +14,13 @@ final class DefaultPipelineTest extends TestCase
             new class implements PipelineStep {
                 public function execute(PipelineContext $context): PipelineResult {
                     $context->set('value', 1);
-                    return new PipelineResult();
+                    return PipelineResult::success();
                 }
             },
             new class implements PipelineStep {
                 public function execute(PipelineContext $context): PipelineResult {
                     $context->set('value', $context->get('value') + 1);
-                    return new PipelineResult();
+                    return PipelineResult::success();
                 }
             },
         ]);

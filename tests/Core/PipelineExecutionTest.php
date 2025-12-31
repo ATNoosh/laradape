@@ -18,13 +18,13 @@ final class PipelineExecutionTest extends TestCase
             new class implements PipelineStep {
                 public function execute(PipelineContext $context): PipelineResult {
                     $context->set('x', 42);
-                    return new PipelineResult();
+                    return PipelineResult::success();
                 }
             },
             new class implements PipelineStep {
                 public function execute(PipelineContext $context): PipelineResult  {
                     $this->assertSame(42, $context->get('x'));
-                    return new PipelineResult();
+                    return PipelineResult::success();
                 }
             },
         ]);
