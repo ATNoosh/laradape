@@ -7,8 +7,8 @@ use Core\Execution\DefaultExecutor;
 use Core\Execution\TimeBox;
 use Core\Job\Job;
 use Core\Pipeline\PipelineResult;
-use Core\ValueObject\JobId;
 use Core\Pipeline\PipelineStep;
+use Core\ValueObject\JobId;
 
 final class PipelineExecutionTest extends TestCase
 {

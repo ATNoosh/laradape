@@ -1,6 +1,6 @@
 <?php
 
-namespace Core\Contract;
+namespace Core\Contracts;
 
 interface DataSource
 {

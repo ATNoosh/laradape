@@ -23,7 +23,10 @@ final class DefaultPipeline implements Pipeline
     {
         foreach ($this->steps as $step) {
             try {
-                $step->execute($context);
+                $result = $step->execute($context);
+                if (! $result->isSuccess()) {
+                    return $result; 
+                }        
             } catch (PipelineException $e) {
                 // Domain-level exception → bubble up
                 throw $e;
