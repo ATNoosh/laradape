@@ -3,9 +3,15 @@
 use Core\Execution\DefaultExecutor;
 use Core\Execution\Executor;
 use Core\Execution\ExecutorDecorator;
+use Core\Execution\ExecutorObserver;
+use Core\Execution\JobReport;
 use Core\Execution\TimeBox;
+use Core\Execution\TimingExecutorDecorator;
 use Core\Job\Job;
+use Core\Job\JobResult;
+use Core\Job\JobState;
 use Core\Pipeline\DefaultPipeline;
+use Core\Pipeline\Pipeline;
 use Core\Pipeline\PipelineContext;
 use Core\Pipeline\PipelineResult;
 use Core\Pipeline\PipelineStep;
@@ -20,14 +26,43 @@ final class NoOpExecutorDecorator implements ExecutorDecorator
     }
 }
 
+final class SpyExecutor implements Executor
+{
+    public ?JobReport $report = null;
+
+    public function execute(Job $job): JobReport
+    {
+        return $this->report = new JobReport(
+            new JobResult(JobState::COMPLETED)
+        );
+    }
+}
+
+final class RecordingExecutorObserver implements ExecutorObserver
+{
+    public bool $started = false;
+    public ?JobResult $finishedResult = null;
+
+    public function executionStarted(): void
+    {
+        $this->started = true;
+    }
+
+    public function executionFinished(JobResult $result): void
+    {
+        $this->finishedResult = $result;
+    }
+}
+
 final class ExecutorDecoratorContractTest extends TestCase
 {
     public function test_executor_decorator_preserves_job_result(): void
     {
-                // arrange
+        // arrange
         $pipeline = new DefaultPipeline([
             new class implements PipelineStep {
-                public function execute(PipelineContext $context): PipelineResult {
+                public function execute(PipelineContext $context): PipelineResult
+                {
                     return PipelineResult::success();
                 }
             }
@@ -56,5 +91,38 @@ final class ExecutorDecoratorContractTest extends TestCase
             $originalReport->result()->message(),
             $decoratedReport->result()->message()
         );
+    }
+    public function test_executor_decorator_preserves_job_result_instance(): void
+    {
+        $executor = new SpyExecutor();
+        $observer = new RecordingExecutorObserver();
+
+        $decorator = new TimingExecutorDecorator($observer);
+        $decorated = $decorator->decorate($executor);
+
+        $job = new Job(new JobId('job-1'), $this->createMock(Pipeline::class));
+
+        $report = $decorated->execute($job);
+
+        $this->assertSame(
+            $executor->report->result(),
+            $report->result(),
+            'Executor decorator must not replace JobResult'
+        );
+    }
+    public function test_executor_decorator_does_not_change_job_state(): void
+    {
+        $executor = new SpyExecutor();
+        $decorator = new TimingExecutorDecorator(
+            new RecordingExecutorObserver()
+        );
+
+        $decorated = $decorator->decorate($executor);
+
+        $job = new Job(new JobId('job-1'), $this->createMock(Pipeline::class));
+
+        $result = $decorated->execute($job)->result();
+
+        $this->assertSame(JobState::COMPLETED, $result->state());
     }
 }
