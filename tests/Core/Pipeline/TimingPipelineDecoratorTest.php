@@ -1,6 +1,7 @@
 <?php
 
 use Core\Pipeline\DefaultPipeline;
+use Core\Pipeline\Pipeline;
 use Core\Pipeline\PipelineContext;
 use Core\Pipeline\PipelineError;
 use PHPUnit\Framework\TestCase;
@@ -27,9 +28,37 @@ final class TestFailingStep implements PipelineStep
 
 final class TestObserver implements PipelineObserver
 {
-    public bool $started = false;
+    public int $started = 0;
+    public int $finished = 0;
+    public array $events = [];
+
+    public function pipelineStarted(): void
+    {
+        $this->started++;
+        $this->events[] = 'started';
+    }
+
+    public function pipelineFinished(PipelineResult $result, float $durationMs): void
+    {
+        $this->finished++;
+        $this->events[] = 'finished';
+    }
+}
+final class SpyPipeline implements Pipeline
+{
     public ?PipelineResult $result = null;
-    public float $duration = 0.0;
+
+    public function run(PipelineContext $context): PipelineResult
+    {
+        return $this->result = PipelineResult::success();
+    }
+}
+
+final class RecordingObserver implements PipelineObserver
+{
+    public bool $started = false;
+    public ?PipelineResult $finishedResult = null;
+    public ?float $durationMs = null;
 
     public function pipelineStarted(): void
     {
@@ -38,40 +67,42 @@ final class TestObserver implements PipelineObserver
 
     public function pipelineFinished(PipelineResult $result, float $durationMs): void
     {
-        $this->result = $result;
-        $this->duration = $durationMs;
+        $this->finishedResult = $result;
+        $this->durationMs = $durationMs;
     }
 }
 
 final class TimingPipelineDecoratorTest extends TestCase
 {
-    public function test_timing_decorator_preserves_pipeline_result(): void {
-            // arrange
-            $pipeline = new DefaultPipeline([
-                new TestSuccessfulStep()
-            ]);
+    public function test_timing_decorator_preserves_pipeline_result(): void
+    {
+        // arrange
+        $pipeline = new DefaultPipeline([
+            new TestSuccessfulStep()
+        ]);
 
-            $observer = new TestObserver();
+        $observer = new TestObserver();
 
-            $decorator = new TimingPipelineDecorator($observer);
+        $decorator = new TimingPipelineDecorator($observer);
 
-            // act
-            $originalResult  = $pipeline->run(new PipelineContext());
-            $decoratedPipeline = $decorator->decorate($pipeline);
-            $decoratedResult = $decoratedPipeline->run(new PipelineContext());
+        // act
+        $originalResult  = $pipeline->run(new PipelineContext());
+        $decoratedPipeline = $decorator->decorate($pipeline);
+        $decoratedResult = $decoratedPipeline->run(new PipelineContext());
 
-            // assert
-            $this->assertSame(
-                $originalResult->isSuccess(),
-                $decoratedResult->isSuccess()
-            );
+        // assert
+        $this->assertSame(
+            $originalResult->isSuccess(),
+            $decoratedResult->isSuccess()
+        );
 
-            $this->assertSame(
-                $originalResult->error()?->code(),
-                $decoratedResult->error()?->code()
-            );
+        $this->assertSame(
+            $originalResult->error()?->code(),
+            $decoratedResult->error()?->code()
+        );
     }
-    public function test_pipeline_observer_is_called(): void {
+    public function test_pipeline_observer_is_called(): void
+    {
         $pipeline = new DefaultPipeline([
             new TestFailingStep()
         ]);
@@ -83,10 +114,58 @@ final class TimingPipelineDecoratorTest extends TestCase
         $decorated = $decorator->decorate($pipeline);
         $result = $decorated->run(new PipelineContext());
 
+        $this->assertSame(1, $observer->started);
+        $this->assertSame(1, $observer->finished);
+        $this->assertSame(['started', 'finished'], $observer->events);
+    }
+    public function test_decorator_preserves_pipeline_result_instance(): void
+    {
+        // arrange
+        $pipeline = new SpyPipeline();
+        $observer = new RecordingObserver();
+        $decorator = new TimingPipelineDecorator($observer);
+
+        $decorated = $decorator->decorate($pipeline);
+
+        // act
+        $result = $decorated->run(new PipelineContext());
+
+        // assert
+        $this->assertSame(
+            $pipeline->result,
+            $result,
+            'Decorator must return the exact PipelineResult instance from inner pipeline'
+        );
+    }
+    public function test_decorator_notifies_observer(): void
+    {
+        // arrange
+        $pipeline = new SpyPipeline();
+        $observer = new RecordingObserver();
+        $decorator = new TimingPipelineDecorator($observer);
+
+        $decorated = $decorator->decorate($pipeline);
+
+        // act
+        $result = $decorated->run(new PipelineContext());
+
+        // assert
         $this->assertTrue($observer->started);
-        $this->assertNotNull($observer->result);
-        $this->assertSame($result->isSuccess(), $observer->result->isSuccess());
-        $this->assertIsFloat($observer->duration);
-        $this->assertGreaterThanOrEqual(0.0, $observer->duration);
+        $this->assertSame($result, $observer->finishedResult);
+        $this->assertIsFloat($observer->durationMs);
+        $this->assertGreaterThanOrEqual(0.0, $observer->durationMs);
+    }
+    public function test_decorator_does_not_change_pipeline_outcome(): void
+    {
+        $pipeline = new SpyPipeline();
+        $observer = new RecordingObserver();
+        $decorator = new TimingPipelineDecorator($observer);
+
+        $decorated = $decorator->decorate($pipeline);
+
+        $result = $decorated->run(new PipelineContext());
+
+        $this->assertTrue($result->isSuccess());
+        $this->assertNull($result->error());
     }
 }
