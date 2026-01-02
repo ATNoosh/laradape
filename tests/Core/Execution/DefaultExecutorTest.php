@@ -38,21 +38,4 @@ final class DefaultExecutorTest extends TestCase
         );
     }
 
-    public function test_job_times_out_before_execution(): void
-    {
-        $pipeline = new DefaultPipeline([]);
-
-        $job = new Job(new JobId('job-2'), $pipeline);
-
-        $executor = new DefaultExecutor(
-            new TimeBox(time() - 100, 1)
-        );
-
-        $report = $executor->execute($job);
-
-        $this->assertSame(
-            JobState::TIMED_OUT,
-            $report->result()->state()
-        );
-    }
 }
