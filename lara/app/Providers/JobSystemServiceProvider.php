@@ -10,6 +10,7 @@ use Core\Execution\JobDispatcher;
 use Core\Execution\JobDispatcherInterface;
 use Core\Pipeline\PipelineFactory;
 use Core\Pipeline\DefaultPipeline;
+use Core\Pipeline\Pipeline;
 
 final class JobSystemServiceProvider extends ServiceProvider
 {
@@ -18,9 +19,9 @@ final class JobSystemServiceProvider extends ServiceProvider
         // Pipeline Factory
         $this->app->singleton(PipelineFactory::class, function () {
             return new class implements PipelineFactory {
-                public function create(array $steps)
+                public function make(string $name): Pipeline
                 {
-                    return new DefaultPipeline($steps);
+                    return new DefaultPipeline([]);
                 }
             };
         });
@@ -30,7 +31,7 @@ final class JobSystemServiceProvider extends ServiceProvider
             return new class($app) implements ExecutorFactory {
                 public function __construct(private $app) {}
 
-                public function create(): Executor
+                public function make(): Executor
                 {
                     return $this->app->make(DefaultExecutor::class);
                 }

@@ -11,16 +11,14 @@ use Core\Error\FatalException;
 
 final class DefaultExecutor implements Executor
 {
-    public function __construct(
-        private TimeBox $timeBox
-    ) {}
 
     public function execute(Job $job): JobReport
     {
+        $timeBox = new TimeBox(time(), 60);
         $context = new PipelineContext();
 
         try {
-            if ($this->timeBox->isExpired()) {
+            if ($timeBox->isExpired()) {
                 return new JobReport(
                     new JobResult(JobState::TIMED_OUT, 'Execution time exceeded before start')
                 );
@@ -28,7 +26,7 @@ final class DefaultExecutor implements Executor
 
             $job->pipeline()->run($context);
 
-            if ($this->timeBox->isExpired()) {
+            if ($timeBox->isExpired()) {
                 return new JobReport(
                     new JobResult(JobState::TIMED_OUT, 'Execution time exceeded after pipeline run')
                 );
@@ -37,17 +35,14 @@ final class DefaultExecutor implements Executor
             return new JobReport(
                 new JobResult(JobState::COMPLETED)
             );
-
         } catch (RecoverableException $e) {
             return new JobReport(
                 new JobResult(JobState::FAILED, $e->getMessage())
             );
-
         } catch (FatalException $e) {
             return new JobReport(
                 new JobResult(JobState::FAILED, $e->getMessage())
             );
-
         } catch (\Throwable $e) {
             return new JobReport(
                 new JobResult(JobState::FAILED, 'Unhandled executor error')
