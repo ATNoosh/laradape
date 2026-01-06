@@ -9,6 +9,7 @@ use Core\Execution\RetryExecutorDecorator;
 use Core\Execution\CircuitBreakerExecutorDecorator;
 use Core\Execution\CircuitBreaker;
 use Core\Execution\ExecutorObserver;
+use Core\Execution\MaxAttemptsRetryPolicy;
 
 final class ExecutorDecoratorBuilder
 {
@@ -19,16 +20,19 @@ final class ExecutorDecoratorBuilder
     public function build(Executor $executor, array $config): Executor
     {
         if ($config['timing']['enabled'] ?? false) {
-            $executor = new TimingExecutorDecorator(
-                $this->container->make(ExecutorObserver::class),
-                $executor
+            $timingDecorator = new TimingExecutorDecorator(
+                $this->container->make(ExecutorObserver::class)
             );
+            $executor = $timingDecorator->decorate($executor);
         }
 
         if ($config['retry']['enabled'] ?? false) {
+            $retryPolicy = new MaxAttemptsRetryPolicy(
+                $config['retry']['max_attempts'] ?? 1
+            );
             $executor = new RetryExecutorDecorator(
                 $executor,
-                $config['retry']['max_attempts'] ?? 1
+                $retryPolicy
             );
         }
 
