@@ -20,6 +20,7 @@ final class DefaultExecutor implements Executor
         try {
             if ($timeBox->isExpired()) {
                 return new JobReport(
+                    $job->id(),
                     new JobResult(JobState::TIMED_OUT, 'Execution time exceeded before start')
                 );
             }
@@ -28,23 +29,28 @@ final class DefaultExecutor implements Executor
 
             if ($timeBox->isExpired()) {
                 return new JobReport(
+                    $job->id(),
                     new JobResult(JobState::TIMED_OUT, 'Execution time exceeded after pipeline run')
                 );
             }
 
             return new JobReport(
+                $job->id(),
                 new JobResult(JobState::COMPLETED)
             );
         } catch (RecoverableException $e) {
             return new JobReport(
+                $job->id(),
                 new JobResult(JobState::FAILED, $e->getMessage())
             );
         } catch (FatalException $e) {
             return new JobReport(
+                $job->id(),
                 new JobResult(JobState::FAILED, $e->getMessage())
             );
         } catch (\Throwable $e) {
             return new JobReport(
+                $job->id(),
                 new JobResult(JobState::FAILED, 'Unhandled executor error')
             );
         }

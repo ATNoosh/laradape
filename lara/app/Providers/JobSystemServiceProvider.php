@@ -13,7 +13,7 @@ use Core\Execution\JobDispatcherInterface;
 use Core\Pipeline\PipelineFactory;
 use App\Pipeline\LaravelPipelineFactory;
 use Core\Execution\ExecutorObserver;
-use App\Execution\LaravelExecutorObserver;
+use App\Execution\LoggingExecutorObserver;
 
 final class JobSystemServiceProvider extends ServiceProvider
 {
@@ -55,7 +55,7 @@ final class JobSystemServiceProvider extends ServiceProvider
         // ExecutorObserver
         $this->app->singleton(
             ExecutorObserver::class,
-            LaravelExecutorObserver::class
+            LoggingExecutorObserver::class
         );
 
         // JobDispatcherInterface → JobDispatcher

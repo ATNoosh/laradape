@@ -2,10 +2,13 @@
 
 namespace Core\Execution;
 
-use Core\Job\JobResult;
+use Core\Execution\JobReport;
 
 interface ExecutorObserver
 {
-    public function executionStarted(): void;
-    public function executionFinished(JobResult $result): void;
+    public function jobStarted(string $jobId): void;
+
+    public function jobFinished(JobReport $report, float $durationMs): void;
+
+    public function jobFailed(JobReport $report, float $durationMs): void;
 }

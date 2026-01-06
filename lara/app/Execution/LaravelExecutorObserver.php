@@ -3,23 +3,25 @@
 namespace App\Execution;
 
 use Core\Execution\ExecutorObserver;
-use Core\Job\JobResult;
+use Core\Execution\JobReport;
 use Illuminate\Support\Facades\Log;
 
-final class LaravelExecutorObserver implements ExecutorObserver
+final class LoggingExecutorObserver implements ExecutorObserver
 {
-    public function executionStarted(): void
+    public function jobStarted(string $jobId): void
     {
-        // Log execution start if needed
-        // For now, this is a no-op implementation
-        // Can be extended to log metrics, send events, etc.
+        Log::info("Job {$jobId} started.");
     }
 
-    public function executionFinished(JobResult $result): void
+    public function jobFinished(JobReport $report, float $durationMs): void
     {
-        // Log execution finish if needed
-        // For now, this is a no-op implementation
-        // Can be extended to log metrics, send events, etc.
+        Log::info("Job {$report->jobId()->value()} finished in {$durationMs}ms with state {$report->result()->state()}.");
+    }
+
+    public function jobFailed(JobReport $report, float $durationMs): void
+    {
+        $message = $report->result()->message() ?? 'Unknown error';
+        Log::warning("Job {$report->jobId()->value()} failed in {$durationMs}ms with message: {$message}");
     }
 }
 

@@ -2,14 +2,30 @@
 
 namespace Core\Execution;
 
-final class TimingExecutorDecorator implements ExecutorDecorator
+use Core\Job\Job;
+
+final class TimingExecutorDecorator implements Executor
 {
     public function __construct(
+        private Executor $inner,
         private ExecutorObserver $observer
     ) {}
 
-    public function decorate(Executor $executor): Executor
+    public function execute(Job $job): JobReport
     {
-        return new ObservedExecutor($executor, $this->observer);
+        $start = microtime(true);
+        $this->observer->jobStarted($job->id()->value());
+
+        $report = $this->inner->execute($job);
+
+        $duration = (microtime(true) - $start) * 1000;
+
+        if ($report->result()->isFailed()) {
+            $this->observer->jobFailed($report, $duration);
+        } else {
+            $this->observer->jobFinished($report, $duration);
+        }
+
+        return $report;
     }
 }

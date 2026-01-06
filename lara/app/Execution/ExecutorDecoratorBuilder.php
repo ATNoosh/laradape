@@ -21,10 +21,10 @@ final class ExecutorDecoratorBuilder
     public function build(Executor $executor, ExecutorConfig $config): Executor
     {
         if ($config->timing->enabled) {
-            $timingDecorator = new TimingExecutorDecorator(
+            $executor = new TimingExecutorDecorator(
+                $executor,
                 $this->container->make(ExecutorObserver::class)
             );
-            $executor = $timingDecorator->decorate($executor);
         }
 
         if ($config->retry->enabled) {
