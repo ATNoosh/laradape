@@ -7,6 +7,7 @@ use Core\Execution\Executor;
 use Core\Execution\DefaultExecutor;
 use Core\Execution\ExecutorFactory;
 use App\Execution\ExecutorDecoratorBuilder;
+use App\Execution\ExecutorConfigFactory;
 use Core\Execution\JobDispatcher;
 use Core\Execution\JobDispatcherInterface;
 use Core\Pipeline\PipelineFactory;
@@ -20,14 +21,17 @@ final class JobSystemServiceProvider extends ServiceProvider
     {
         // ExecutorFactory
         $this->app->singleton(ExecutorFactory::class, function ($app) {
+            $raw = config('job-system.executor.decorators');
+            $config = ExecutorConfigFactory::fromArray($raw);
+
             return new class(
                 $app->make(ExecutorDecoratorBuilder::class),
-                config('job-system.executor.decorators')
+                $config
             ) implements ExecutorFactory {
 
                 public function __construct(
                     private ExecutorDecoratorBuilder $builder,
-                    private array $decoratorConfig
+                    private \Core\Execution\Config\ExecutorConfig $config
                 ) {}
 
                 public function make(): Executor
@@ -36,7 +40,7 @@ final class JobSystemServiceProvider extends ServiceProvider
 
                     return $this->builder->build(
                         $executor,
-                        $this->decoratorConfig
+                        $this->config
                     );
                 }
             };

@@ -10,6 +10,7 @@ use Core\Execution\CircuitBreakerExecutorDecorator;
 use Core\Execution\CircuitBreaker;
 use Core\Execution\ExecutorObserver;
 use Core\Execution\MaxAttemptsRetryPolicy;
+use Core\Execution\Config\ExecutorConfig;
 
 final class ExecutorDecoratorBuilder
 {
@@ -17,18 +18,18 @@ final class ExecutorDecoratorBuilder
         private Container $container
     ) {}
 
-    public function build(Executor $executor, array $config): Executor
+    public function build(Executor $executor, ExecutorConfig $config): Executor
     {
-        if ($config['timing']['enabled'] ?? false) {
+        if ($config->timing->enabled) {
             $timingDecorator = new TimingExecutorDecorator(
                 $this->container->make(ExecutorObserver::class)
             );
             $executor = $timingDecorator->decorate($executor);
         }
 
-        if ($config['retry']['enabled'] ?? false) {
+        if ($config->retry->enabled) {
             $retryPolicy = new MaxAttemptsRetryPolicy(
-                $config['retry']['max_attempts'] ?? 1
+                $config->retry->maxAttempts
             );
             $executor = new RetryExecutorDecorator(
                 $executor,
@@ -36,10 +37,10 @@ final class ExecutorDecoratorBuilder
             );
         }
 
-        if ($config['circuit_breaker']['enabled'] ?? false) {
+        if ($config->circuitBreaker->enabled) {
             $breaker = new CircuitBreaker(
-                $config['circuit_breaker']['failure_threshold'],
-                $config['circuit_breaker']['cooldown_seconds']
+                $config->circuitBreaker->failureThreshold,
+                $config->circuitBreaker->cooldownSeconds
             );
 
             $executor = new CircuitBreakerExecutorDecorator(
