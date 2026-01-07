@@ -9,7 +9,7 @@ use Core\Execution\RetryExecutorDecorator;
 use Core\Execution\CircuitBreakerExecutorDecorator;
 use Core\Execution\CircuitBreaker;
 use Core\Execution\ExecutorObserver;
-use Core\Execution\MaxAttemptsRetryPolicy;
+use Core\Execution\SimpleRetryPolicy;
 use Core\Execution\Config\ExecutorConfig;
 
 final class ExecutorDecoratorBuilder
@@ -28,8 +28,9 @@ final class ExecutorDecoratorBuilder
         }
 
         if ($config->retry->enabled) {
-            $retryPolicy = new MaxAttemptsRetryPolicy(
-                $config->retry->maxAttempts
+            $retryPolicy = new SimpleRetryPolicy(
+                $config->retry->maxAttempts,
+                0 // delay can be configured later
             );
             $executor = new RetryExecutorDecorator(
                 $executor,
