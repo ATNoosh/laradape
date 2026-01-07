@@ -2,9 +2,16 @@
 
 namespace Core\Execution;
 
+use Core\Job\Job;
 use Core\Job\JobResult;
+use Throwable;
 
 interface RetryPolicy
 {
-    public function shouldRetry(JobResult $result, int $attempt): bool;
+    public function decide(
+        Job $job,
+        JobResult $result,
+        ?Throwable $exception = null,
+        int $attempt = 1
+    ): RetryResult;
 }

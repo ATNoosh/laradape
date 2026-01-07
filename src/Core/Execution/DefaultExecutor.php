@@ -24,6 +24,10 @@ final class DefaultExecutor implements Executor
         try {
             $job->pipeline()->run(new PipelineContext());
 
+            if ($this->timeBox->isExpired()) {
+                return JobReport::timedOut($job->id());
+            }
+
             return JobReport::completed($job->id());
 
         } catch (RecoverableException $e) {
