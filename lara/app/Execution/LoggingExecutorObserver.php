@@ -4,24 +4,39 @@ namespace App\Execution;
 
 use Core\Execution\ExecutorObserver;
 use Core\Execution\JobReport;
+use Core\Job\Job;
 use Illuminate\Support\Facades\Log;
+use Throwable;
 
 final class LoggingExecutorObserver implements ExecutorObserver
 {
-    public function jobStarted(string $jobId): void
+    public function jobStarted(Job $job): void
     {
-        Log::info("Job {$jobId} started.");
+        Log::info('job.started', [
+            'job_id' => $job->id()->value(),
+        ]);
     }
 
-    public function jobFinished(JobReport $report, float $durationMs): void
-    {
-        Log::info("Job {$report->jobId()->value()} finished in {$durationMs}ms with state {$report->result()->state()}.");
+    public function jobFinished(
+        Job $job,
+        JobReport $report,
+        float $durationMs
+    ): void {
+        Log::info('job.finished', [
+            'job_id'      => $job->id()->value(),
+            'state'       => $report->result()->state(),
+            'duration_ms' => round($durationMs, 2),
+        ]);
     }
 
-    public function jobFailed(JobReport $report, float $durationMs): void
+    public function jobFailed(Job $job, Throwable $e, float $durationMs): void
     {
-        $message = $report->result()->message() ?? 'Unknown error';
-        Log::warning("Job {$report->jobId()->value()} failed in {$durationMs}ms with message: {$message}");
+        Log::error('job.failed', [
+            'job_id'    => $job->id()->value(),
+            'exception' => $e::class,
+            'message'   => $e->getMessage(),
+            'duration'  => $durationMs,
+            'trace'     => config('app.debug') ? $e->getTraceAsString() : null,
+        ]);
     }
 }
-

@@ -6,6 +6,7 @@ use Illuminate\Support\ServiceProvider;
 use Core\Execution\Executor;
 use Core\Execution\DefaultExecutor;
 use Core\Execution\ExecutorFactory;
+use Core\Execution\TimeBox;
 use App\Execution\ExecutorDecoratorBuilder;
 use App\Execution\ExecutorConfigFactory;
 use Core\Execution\JobDispatcher;
@@ -36,7 +37,9 @@ final class JobSystemServiceProvider extends ServiceProvider
 
                 public function make(): Executor
                 {
-                    $executor = new DefaultExecutor();
+                    $executor = new DefaultExecutor(
+                        new TimeBox(time(), 60)
+                    );
 
                     return $this->builder->build(
                         $executor,

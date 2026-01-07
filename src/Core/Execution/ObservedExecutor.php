@@ -13,14 +13,16 @@ final class ObservedExecutor implements Executor
 
     public function execute(Job $job): JobReport
     {
-        $this->observer->executionStarted();
+        $this->observer->jobStarted($job);
 
         $report = $this->inner->execute($job);
 
-        $this->observer->executionFinished(
-            $report->result()
+        $this->observer->jobFinished(
+            $job,
+            $report,
+            1
         );
 
-        return $report; 
+        return $report;
     }
 }

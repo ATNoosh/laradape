@@ -22,10 +22,11 @@ final class RetryExecutorDecoratorTest extends TestCase
 
     public function test_retries_on_failure_until_success(): void
     {
+        $jobId = new JobId('test-job');
         $executor = new CountingExecutor([
-            new JobReport(new JobResult(JobResult::STATE_FAILED)),
-            new JobReport(new JobResult(JobResult::STATE_FAILED)),
-            new JobReport(new JobResult(JobResult::STATE_COMPLETED)),
+            JobReport::failed($jobId, 'failed 1'),
+            JobReport::failed($jobId, 'failed 2'),
+            JobReport::completed($jobId),
         ]);
 
         $decorated = new RetryExecutorDecorator(
@@ -41,9 +42,10 @@ final class RetryExecutorDecoratorTest extends TestCase
 
     public function test_stops_after_max_retries(): void
     {
+        $jobId = new JobId('test-job');
         $executor = new CountingExecutor([
-            new JobReport(new JobResult(JobResult::STATE_FAILED)),
-            new JobReport(new JobResult(JobResult::STATE_FAILED)),
+            JobReport::failed($jobId, 'failed 1'),
+            JobReport::failed($jobId, 'failed 2'),
         ]);
 
         $decorated = new RetryExecutorDecorator(
@@ -59,8 +61,9 @@ final class RetryExecutorDecoratorTest extends TestCase
 
     public function test_does_not_retry_on_success(): void
     {
+        $jobId = new JobId('test-job');
         $executor = new CountingExecutor([
-            new JobReport(new JobResult(JobResult::STATE_COMPLETED)),
+            JobReport::completed($jobId),
         ]);
 
         $decorated = new RetryExecutorDecorator(

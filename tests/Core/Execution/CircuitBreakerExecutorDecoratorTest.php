@@ -26,9 +26,7 @@ final class SucceedingExecutor implements Executor
 {
     public function execute(Job $job): JobReport
     {
-        return new JobReport(
-            new JobResult(JobState::COMPLETED)
-        );
+        return JobReport::completed($job->id());
     }
 }
 
@@ -36,9 +34,7 @@ final class FailingExecutor implements Executor
 {
     public function execute(Job $job): JobReport
     {
-        return new JobReport(
-            new JobResult(JobState::FAILED, 'execution failed')
-        );
+        return JobReport::failed($job->id(), 'execution failed');
     }
 }
 final class FlakyExecutor implements Executor
@@ -50,14 +46,10 @@ final class FlakyExecutor implements Executor
         $this->attempts++;
 
         if ($this->attempts < 2) {
-            return new JobReport(
-                new JobResult(JobState::FAILED, 'temporary failure')
-            );
+            return JobReport::failed($job->id(), 'temporary failure');
         }
 
-        return new JobReport(
-            new JobResult(JobState::COMPLETED)
-        );
+        return JobReport::completed($job->id());
     }
 }
 

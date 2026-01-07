@@ -11,48 +11,29 @@ use Core\Error\FatalException;
 
 final class DefaultExecutor implements Executor
 {
+    public function __construct(
+        private TimeBox $timeBox
+    ) {}
 
     public function execute(Job $job): JobReport
     {
-        $timeBox = new TimeBox(time(), 60);
-        $context = new PipelineContext();
+        if ($this->timeBox->isExpired()) {
+            return JobReport::timedOut($job->id());
+        }
 
         try {
-            if ($timeBox->isExpired()) {
-                return new JobReport(
-                    $job->id(),
-                    new JobResult(JobState::TIMED_OUT, 'Execution time exceeded before start')
-                );
-            }
+            $job->pipeline()->run(new PipelineContext());
 
-            $job->pipeline()->run($context);
+            return JobReport::completed($job->id());
 
-            if ($timeBox->isExpired()) {
-                return new JobReport(
-                    $job->id(),
-                    new JobResult(JobState::TIMED_OUT, 'Execution time exceeded after pipeline run')
-                );
-            }
-
-            return new JobReport(
-                $job->id(),
-                new JobResult(JobState::COMPLETED)
-            );
         } catch (RecoverableException $e) {
-            return new JobReport(
-                $job->id(),
-                new JobResult(JobState::FAILED, $e->getMessage())
-            );
+            return JobReport::failed($job->id(), $e->getMessage());
+
         } catch (FatalException $e) {
-            return new JobReport(
-                $job->id(),
-                new JobResult(JobState::FAILED, $e->getMessage())
-            );
-        } catch (\Throwable $e) {
-            return new JobReport(
-                $job->id(),
-                new JobResult(JobState::FAILED, 'Unhandled executor error')
-            );
+            return JobReport::failed($job->id(), $e->getMessage());
+
+        } catch (\Throwable) {
+            return JobReport::failed($job->id(), 'Unhandled executor error');
         }
     }
 }

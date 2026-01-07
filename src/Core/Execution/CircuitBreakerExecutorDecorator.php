@@ -17,9 +17,7 @@ final class CircuitBreakerExecutorDecorator implements Executor
     public function execute(Job $job): JobReport
     {
         if (! $this->breaker->canExecute()) {
-            return new JobReport(
-                new JobResult(JobState::FAILED, self::OPEN_MESSAGE)
-            );
+            return JobReport::failed($job->id(), self::OPEN_MESSAGE);
         }
 
         $report = $this->inner->execute($job);

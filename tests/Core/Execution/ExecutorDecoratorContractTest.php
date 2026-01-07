@@ -32,25 +32,34 @@ final class SpyExecutor implements Executor
 
     public function execute(Job $job): JobReport
     {
-        return $this->report = new JobReport(
-            new JobResult(JobState::COMPLETED)
-        );
+        return $this->report = JobReport::completed($job->id());
     }
 }
 
 final class RecordingExecutorObserver implements ExecutorObserver
 {
     public bool $started = false;
-    public ?JobResult $finishedResult = null;
+    public bool $failed = false;
+    public ?JobReport $report = null;
+    public ?float $duration = null;
 
-    public function executionStarted(): void
+    public function jobStarted(Job $job): void
     {
         $this->started = true;
     }
 
-    public function executionFinished(JobResult $result): void
+    public function jobFinished(
+        Job $job,
+        JobReport $report,
+        float $durationMs
+    ): void {
+        $this->report = $report;
+        $this->duration = $durationMs;
+    }
+
+    public function jobFailed(Job $job, Throwable $e, float $durationMs): void
     {
-        $this->finishedResult = $result;
+        $this->failed = true;
     }
 }
 
@@ -97,8 +106,7 @@ final class ExecutorDecoratorContractTest extends TestCase
         $executor = new SpyExecutor();
         $observer = new RecordingExecutorObserver();
 
-        $decorator = new TimingExecutorDecorator($observer);
-        $decorated = $decorator->decorate($executor);
+        $decorated = new TimingExecutorDecorator($executor, $observer);
 
         $job = new Job(new JobId('job-1'), $this->createMock(Pipeline::class));
 
@@ -106,18 +114,16 @@ final class ExecutorDecoratorContractTest extends TestCase
 
         $this->assertSame(
             $executor->report->result(),
-            $report->result(),
+            $observer->report->result(),
             'Executor decorator must not replace JobResult'
         );
     }
     public function test_executor_decorator_does_not_change_job_state(): void
     {
         $executor = new SpyExecutor();
-        $decorator = new TimingExecutorDecorator(
-            new RecordingExecutorObserver()
-        );
+        $observer = new RecordingExecutorObserver();
 
-        $decorated = $decorator->decorate($executor);
+        $decorated = new TimingExecutorDecorator($executor, $observer);
 
         $job = new Job(new JobId('job-1'), $this->createMock(Pipeline::class));
 

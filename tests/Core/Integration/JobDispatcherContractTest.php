@@ -1,6 +1,6 @@
 <?php
 
-use Core\Execution\JobDispatcher;
+use Core\Execution\JobDispatcherInterface;
 use Core\Job\JobResult;
 use PHPUnit\Framework\TestCase;
 use Core\Job\Job;
@@ -10,13 +10,13 @@ final class JobDispatcherContractTest extends TestCase
 {
     public function test_job_dispatcher_contract_is_callable(): void
     {
-        $dispatcher = new class implements JobDispatcher {
+        $dispatcher = new class implements JobDispatcherInterface {
             public function dispatch(Job $job): JobReport
             {
-                return new JobReport(new JobResult(''));
+                return JobReport::completed($job->id());
             }
         };
 
-        $this->assertInstanceOf(JobDispatcher::class, $dispatcher);
+        $this->assertInstanceOf(JobDispatcherInterface::class, $dispatcher);
     }
 }

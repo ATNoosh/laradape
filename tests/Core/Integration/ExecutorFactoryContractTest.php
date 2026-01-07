@@ -17,7 +17,7 @@ final class ExecutorFactoryContractTest extends TestCase
                 return new class implements Executor {
                     public function execute(Job $job): JobReport
                     {
-                        return new JobReport(new JobResult(''));
+                        return JobReport::completed($job->id());
                     }
                 };
             }

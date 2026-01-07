@@ -3,6 +3,7 @@
 namespace Core\Execution;
 
 use Core\Job\Job;
+use Throwable;
 
 final class TimingExecutorDecorator implements Executor
 {
@@ -14,18 +15,32 @@ final class TimingExecutorDecorator implements Executor
     public function execute(Job $job): JobReport
     {
         $start = microtime(true);
-        $this->observer->jobStarted($job->id()->value());
 
-        $report = $this->inner->execute($job);
+        $this->observer->jobStarted($job);
 
-        $duration = (microtime(true) - $start) * 1000;
+        try {
+            $report = $this->inner->execute($job);
 
-        if ($report->result()->isFailed()) {
-            $this->observer->jobFailed($report, $duration);
-        } else {
-            $this->observer->jobFinished($report, $duration);
+            $durationMs = (microtime(true) - $start) * 1000;
+
+            $this->observer->jobFinished(
+                $job,
+                $report,
+                $durationMs
+            );
+
+            return $report;
+
+        } catch (Throwable $e) {
+            $durationMs = (microtime(true) - $start) * 1000;
+
+            $this->observer->jobFailed(
+                $job,
+                $e,
+                $durationMs
+            );
+
+            throw $e; // ❗ decorator must not swallow exceptions
         }
-
-        return $report;
     }
 }
