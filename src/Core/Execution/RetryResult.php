@@ -6,17 +6,18 @@ final class RetryResult
 {
     private function __construct(
         private bool $shouldRetry,
-        private ?int $delayMs = null
+        private ?int $delayMs = null,
+        private string $reason
     ) {}
 
-    public static function retry(int $delayMs = 0): self
+    public static function retry(int $delayMs = 0, string $reason = ''): self
     {
-        return new self(true, $delayMs);
+        return new self(true, $delayMs, $reason);
     }
 
-    public static function doNotRetry(): self
+    public static function doNotRetry(string $reason): self
     {
-        return new self(false);
+        return new self(false, null,$reason);
     }
 
     public function shouldRetry(): bool
@@ -27,6 +28,11 @@ final class RetryResult
     public function delayMs(): ?int
     {
         return $this->delayMs;
+    }
+
+    public function reason(): string 
+    {
+        return $this->reason;
     }
 }
 

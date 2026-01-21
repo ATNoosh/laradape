@@ -20,7 +20,7 @@ final class SimpleRetryPolicy implements RetryPolicy
         int $attempt = 1
     ): RetryResult {
         if ($attempt >= $this->maxAttempts) {
-            return RetryResult::doNotRetry();
+            return RetryResult::doNotRetry('Max attempts done!');
         }
 
         if ($result->isFailed()) {
