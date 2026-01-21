@@ -10,7 +10,8 @@ final class ExponentialBackoffRetryPolicy implements RetryPolicy
 {
     public function __construct(
         private int $maxAttempts = 5,
-        private int $baseDelayMs = 100
+        private int $baseDelayMs = 100,
+        private int $maxDelayMs = 30_000
     ) {}
 
     public function decide(
@@ -32,7 +33,8 @@ final class ExponentialBackoffRetryPolicy implements RetryPolicy
         }
 
         $delay = $this->baseDelayMs * (2 ** ($attempt - 1));
+        $delay = min($delay, $this->maxDelayMs);
 
-        return RetryResult::retry($delay, 'Exponential backoff retry');
+        return RetryResult::retry($delay, 'Retry attempt {$attempt} with {$delay}ms delay');
     }
 }

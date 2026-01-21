@@ -4,7 +4,6 @@ use PHPUnit\Framework\TestCase;
 use Core\Execution\DefaultExecutor;
 use Core\Execution\TimeBox;
 use Core\Execution\RetryExecutorDecorator;
-use Core\Execution\SimpleRetryPolicy;
 use Core\Pipeline\DefaultPipeline;
 use Core\Pipeline\PipelineContext;
 use Core\Pipeline\PipelineStep;
@@ -14,6 +13,9 @@ use Core\Job\JobState;
 use Core\ValueObject\JobId;
 use Core\Error\RecoverableException;
 use Core\Error\FatalException;
+use Core\Execution\RetryPolicy;
+use Core\Execution\RetryResult;
+use Core\Job\JobResult;
 
 // Test Doubles - Steps
 final class DecisionMatrixSuccessfulStep implements PipelineStep
@@ -56,33 +58,33 @@ final class DecisionMatrixFatalStep implements PipelineStep
 }
 
 // Test Doubles - Retry Policies
-final class SingleRetryPolicy implements \Core\Execution\RetryPolicy
+final class SingleRetryPolicy implements RetryPolicy
 {
     public function decide(
-        \Core\Job\Job $job,
-        \Core\Job\JobResult $result,
+        Job $job,
+        JobResult $result,
         ?\Throwable $exception = null,
         int $attempt = 1
-    ): \Core\Execution\RetryResult {
+    ): RetryResult {
         if ($attempt >= 2) {
-            return \Core\Execution\RetryResult::doNotRetry();
+            return RetryResult::doNotRetry();
         }
         if ($result->isFailed()) {
-            return \Core\Execution\RetryResult::retry(0);
+            return RetryResult::retry(0);
         }
-        return \Core\Execution\RetryResult::doNotRetry();
+        return RetryResult::doNotRetry();
     }
 }
 
-final class NoRetryPolicy implements \Core\Execution\RetryPolicy
+final class NoRetryPolicy implements RetryPolicy
 {
     public function decide(
-        \Core\Job\Job $job,
-        \Core\Job\JobResult $result,
+        Job $job,
+        JobResult $result,
         ?\Throwable $exception = null,
         int $attempt = 1
-    ): \Core\Execution\RetryResult {
-        return \Core\Execution\RetryResult::doNotRetry();
+    ): RetryResult {
+        return RetryResult::doNotRetry();
     }
 }
 
