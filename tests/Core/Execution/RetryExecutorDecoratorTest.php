@@ -5,6 +5,7 @@ use Core\Execution\RetryExecutorDecorator;
 use Core\Execution\SimpleRetryPolicy;
 use Core\Execution\Executor;
 use Core\Execution\ExponentialBackoffRetryPolicy;
+use Core\Execution\InMemoryRetryMetricsObserver;
 use Core\Execution\JobReport;
 use Core\Job\Job;
 use Core\Job\JobResult;
@@ -131,21 +132,21 @@ final class RetryExecutorDecoratorTest extends TestCase
 
         $failingThenSuccessExecutor = new class($attempts) implements Executor {
             public function __construct(private int &$attempts) {}
-        
+
             public function execute(Job $job): JobReport
             {
                 $this->attempts++;
-        
+
                 if ($this->attempts < 3) {
                     return JobReport::failed(
                         $job->id(),
                         'Failed Message'
                     );
                 }
-        
+
                 return JobReport::completed($job->id());
             }
-        };        
+        };
 
         $policy = new ExponentialBackoffRetryPolicy(5, 0, 0); // بدون delay برای تست
 
@@ -160,6 +161,26 @@ final class RetryExecutorDecoratorTest extends TestCase
 
         $this->assertSame(JobResult::STATE_COMPLETED, $report->result()->state());
         $this->assertSame(3, $attempts);
+    }
+
+    public function test_retry_metrics_are_recorded(): void
+    {
+        $metrics = new InMemoryRetryMetricsObserver();
+
+        $policy = new ExponentialBackoffRetryPolicy(3, 0, 0);
+
+        $executor = new RetryExecutorDecorator(
+            new AlwaysFailExecutor(),
+            $policy,
+            $metrics
+        );
+
+        $job = new Job(new JobId('job-x'), $this->createMock(Pipeline::class));
+
+        $executor->execute($job);
+
+        $this->assertSame(2, $metrics->scheduled); // two retries
+        $this->assertSame(1, $metrics->stopped);   // final stop
     }
 }
 
@@ -181,3 +202,14 @@ final class CountingExecutor implements Executor
         return array_shift($this->reports);
     }
 }
+final class AlwaysFailExecutor implements Executor
+{
+    public function execute(Job $job): JobReport
+    {
+        return JobReport::failed(
+            $job->id(),
+            'Always fails'
+        );
+    }
+}
+

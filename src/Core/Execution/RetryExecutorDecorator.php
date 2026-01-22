@@ -10,7 +10,8 @@ final class RetryExecutorDecorator implements Executor
 {
     public function __construct(
         private Executor $inner,
-        private RetryPolicy $policy
+        private RetryPolicy $policy,
+        private ?RetryObserver $observer = null
     ) {}
 
     public function execute(Job $job): JobReport
@@ -31,7 +32,6 @@ final class RetryExecutorDecorator implements Executor
                     null,
                     $attempt
                 );
-
             } catch (Throwable $e) {
 
                 $decision = $this->policy->decide(
@@ -43,11 +43,19 @@ final class RetryExecutorDecorator implements Executor
             }
 
             if (! $decision->shouldRetry()) {
+                $this->observer?->retryStopped($job, $attempt, $decision->reason());
                 return $report ?? JobReport::failed(
                     $job->id(),
                     $decision->reason()
                 );
             }
+
+            $this->observer?->retryScheduled(
+                $job,
+                $attempt,
+                $decision->delayMs() ?? 0,
+                $decision->reason()
+            );
 
             if ($decision->delayMs() !== null && $decision->delayMs() > 0) {
                 usleep($decision->delayMs() * 1000);
@@ -55,6 +63,5 @@ final class RetryExecutorDecorator implements Executor
 
             $attempt++;
         }
-
     }
 }
