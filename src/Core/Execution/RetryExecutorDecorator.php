@@ -3,6 +3,7 @@
 namespace Core\Execution;
 
 use Core\Job\Job;
+use Core\Job\JobResult;
 use Throwable;
 
 final class RetryExecutorDecorator implements Executor
@@ -19,34 +20,41 @@ final class RetryExecutorDecorator implements Executor
         while (true) {
             try {
                 $report = $this->inner->execute($job);
-                $retry = $this->policy->decide(
+
+                if ($report->result()->isCompleted()) {
+                    return $report;
+                }
+
+                $decision = $this->policy->decide(
                     $job,
                     $report->result(),
                     null,
                     $attempt
                 );
+
             } catch (Throwable $e) {
-                $retry = $this->policy->decide(
+
+                $decision = $this->policy->decide(
                     $job,
-                    \Core\Job\JobResult::failed($e->getMessage()),
+                    JobResult::failed($e->getMessage()),
                     $e,
                     $attempt
                 );
-
-                if (! $retry->shouldRetry()) {
-                    throw $e;
-                }
             }
 
-            if (! $retry->shouldRetry()) {
-                return $report;
+            if (! $decision->shouldRetry()) {
+                return $report ?? JobReport::failed(
+                    $job->id(),
+                    $decision->reason()
+                );
             }
 
-            if ($retry->delayMs() > 0) {
-                usleep($retry->delayMs() * 1000);
+            if ($decision->delayMs() !== null && $decision->delayMs() > 0) {
+                usleep($decision->delayMs() * 1000);
             }
 
             $attempt++;
         }
+
     }
 }

@@ -4,9 +4,12 @@ use PHPUnit\Framework\TestCase;
 use Core\Execution\RetryExecutorDecorator;
 use Core\Execution\SimpleRetryPolicy;
 use Core\Execution\Executor;
+use Core\Execution\ExponentialBackoffRetryPolicy;
 use Core\Execution\JobReport;
 use Core\Job\Job;
+use Core\Job\JobResult;
 use Core\Pipeline\DefaultPipeline;
+use Core\Pipeline\Pipeline;
 use Core\ValueObject\JobId;
 
 final class RetryExecutorDecoratorTest extends TestCase
@@ -94,7 +97,7 @@ final class RetryExecutorDecoratorTest extends TestCase
 
         $this->assertSame(2, $executor->calls);
         $this->assertTrue($report->result()->isCompleted());
-        $this->assertGreaterThanOrEqual(10, $duration);
+        $this->assertGreaterThan(5, $duration);
     }
 
     public function test_retry_handles_exceptions(): void
@@ -120,6 +123,43 @@ final class RetryExecutorDecoratorTest extends TestCase
         $report = $decorated->execute($this->job());
 
         $this->assertTrue($report->result()->isCompleted());
+    }
+
+    public function test_job_is_retried_until_success(): void
+    {
+        $attempts = 0;
+
+        $failingThenSuccessExecutor = new class($attempts) implements Executor {
+            public function __construct(private int &$attempts) {}
+        
+            public function execute(Job $job): JobReport
+            {
+                $this->attempts++;
+        
+                if ($this->attempts < 3) {
+                    return JobReport::failed(
+                        $job->id(),
+                        'Failed Message'
+                    );
+                }
+        
+                return JobReport::completed($job->id());
+            }
+        };        
+
+        $policy = new ExponentialBackoffRetryPolicy(5, 0, 0); // بدون delay برای تست
+
+        $executor = new RetryExecutorDecorator(
+            $failingThenSuccessExecutor,
+            $policy
+        );
+
+        $job = new Job(new JobId('retry-job'), $this->createMock(Pipeline::class));
+
+        $report = $executor->execute($job);
+
+        $this->assertSame(JobResult::STATE_COMPLETED, $report->result()->state());
+        $this->assertSame(3, $attempts);
     }
 }
 

@@ -67,12 +67,12 @@ final class SingleRetryPolicy implements RetryPolicy
         int $attempt = 1
     ): RetryResult {
         if ($attempt >= 2) {
-            return RetryResult::doNotRetry();
+            return RetryResult::doNotRetry('Number of attepts exceeds from 2');
         }
         if ($result->isFailed()) {
             return RetryResult::retry(0);
         }
-        return RetryResult::doNotRetry();
+        return RetryResult::doNotRetry('Simple Reason');
     }
 }
 
@@ -84,7 +84,7 @@ final class NoRetryPolicy implements RetryPolicy
         ?\Throwable $exception = null,
         int $attempt = 1
     ): RetryResult {
-        return RetryResult::doNotRetry();
+        return RetryResult::doNotRetry('Do not retry');
     }
 }
 

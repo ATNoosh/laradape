@@ -27,7 +27,7 @@ final class SimpleRetryPolicy implements RetryPolicy
             return RetryResult::retry($this->delayMs);
         }
 
-        return RetryResult::doNotRetry();
+        return RetryResult::doNotRetry('Simple dont retry');
     }
 }
 
