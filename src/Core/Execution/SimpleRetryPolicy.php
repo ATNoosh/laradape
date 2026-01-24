@@ -13,17 +13,12 @@ final class SimpleRetryPolicy implements RetryPolicy
         private int $delayMs = 0
     ) {}
 
-    public function decide(
-        Job $job,
-        JobResult $result,
-        ?Throwable $exception = null,
-        int $attempt = 1
-    ): RetryResult {
-        if ($attempt >= $this->maxAttempts) {
+    public function decide(RetryContext $context): RetryResult {
+        if ($context->attempt >= $this->maxAttempts) {
             return RetryResult::doNotRetry('Max attempts done!');
         }
 
-        if ($result->isFailed()) {
+        if ($context->result->isFailed()) {
             return RetryResult::retry($this->delayMs);
         }
 

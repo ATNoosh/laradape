@@ -1,6 +1,7 @@
 <?php
 
 use Core\Execution\ExponentialBackoffRetryPolicy;
+use Core\Execution\RetryContext;
 use PHPUnit\Framework\TestCase;
 use Core\Job\Job;
 use Core\Job\JobResult;
@@ -18,10 +19,11 @@ final class ExponentialBackoffRetryPolicyTest extends TestCase
 
         $job = $this->realJob();
         $result = JobResult::failed('Failed Message');
+        $startedAt = microtime(true);
 
-        $r1 = $policy->decide($job, $result, null, 1);
-        $r2 = $policy->decide($job, $result, null, 2);
-        $r3 = $policy->decide($job, $result, null, 3);
+        $r1 = $policy->decide(new RetryContext($job, $result, null, 1, $startedAt));
+        $r2 = $policy->decide(new RetryContext($job, $result, null, 2, $startedAt));
+        $r3 = $policy->decide(new RetryContext($job, $result, null, 3, $startedAt));
 
         $this->assertSame(100, $r1->delayMs());
         $this->assertSame(200, $r2->delayMs());
@@ -34,8 +36,9 @@ final class ExponentialBackoffRetryPolicyTest extends TestCase
 
         $job = $this->realJob();
         $result = JobResult::failed('Failed Message');
+        $startedAt = microtime(true);
 
-        $r = $policy->decide($job, $result, null, 4);
+        $r = $policy->decide(new RetryContext($job, $result, null, 4, $startedAt));
 
         $this->assertFalse($r->shouldRetry());
     }

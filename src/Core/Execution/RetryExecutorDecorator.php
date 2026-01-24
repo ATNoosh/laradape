@@ -17,6 +17,7 @@ final class RetryExecutorDecorator implements Executor
     public function execute(Job $job): JobReport
     {
         $attempt = 1;
+        $startedAt = microtime(true);
 
         while (true) {
             try {
@@ -26,20 +27,25 @@ final class RetryExecutorDecorator implements Executor
                     return $report;
                 }
 
-                $decision = $this->policy->decide(
-                    $job,
-                    $report->result(),
-                    null,
-                    $attempt
+                $context = new RetryContext(
+                    job: $job,
+                    result: $report->result(),
+                    exception: null,
+                    attempt: $attempt,
+                    startedAt: $startedAt
                 );
-            } catch (Throwable $e) {
 
-                $decision = $this->policy->decide(
-                    $job,
-                    JobResult::failed($e->getMessage()),
-                    $e,
-                    $attempt
+                $decision = $this->policy->decide($context);
+            } catch (Throwable $e) {
+                $context = new RetryContext(
+                    job: $job,
+                    result: JobResult::failed($e->getMessage()),
+                    exception: $e,
+                    attempt: $attempt,
+                    startedAt: $startedAt
                 );
+
+                $decision = $this->policy->decide($context);
             }
 
             if (! $decision->shouldRetry()) {

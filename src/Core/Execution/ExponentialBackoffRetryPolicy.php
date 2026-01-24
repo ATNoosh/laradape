@@ -14,25 +14,20 @@ final class ExponentialBackoffRetryPolicy implements RetryPolicy
         private int $maxDelayMs = 30_000
     ) {}
 
-    public function decide(
-        Job $job,
-        JobResult $result,
-        ?Throwable $exception = null,
-        int $attempt = 1
-    ): RetryResult {
-        if ($exception instanceof NonRetryableException) {
+    public function decide(RetryContext $context): RetryResult {
+        if ($context->exception instanceof NonRetryableException) {
             return RetryResult::doNotRetry('Non-retryable exception');
         }
 
-        if ($attempt >= $this->maxAttempts) {
+        if ($context->attempt >= $this->maxAttempts) {
             return RetryResult::doNotRetry('Max retry attempts reached');
         }
 
-        if ($result->isCompleted()) {
+        if ($context->result->isCompleted()) {
             return RetryResult::doNotRetry('Job completed successfully');
         }
 
-        $delay = $this->baseDelayMs * (2 ** ($attempt - 1));
+        $delay = $this->baseDelayMs * (2 ** ($context->attempt - 1));
         $delay = min($delay, $this->maxDelayMs);
 
         return RetryResult::retry($delay, 'Retry attempt {$attempt} with {$delay}ms delay');

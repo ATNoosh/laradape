@@ -1,5 +1,6 @@
 <?php
 
+use Core\Execution\RetryContext;
 use PHPUnit\Framework\TestCase;
 use Core\Execution\ExponentialBackoffRetryPolicy;
 use Core\Execution\RetryResult;
@@ -21,19 +22,20 @@ final class NonRetryableExceptionTest extends TestCase
             maxDelayMs: 1000
         );
 
-        $job = $this->realJob(); 
+        $job = $this->realJob();
         $result = JobResult::failed('validation error');
         $exception = new ValidationException('Invalid input');
+        $startedAt = microtime(true);
 
-        $decision = $policy->decide($job, $result, $exception, 1);
+        $decision = $policy->decide(new RetryContext($job, $result, $exception, 1, $startedAt));
 
         $this->assertFalse($decision->shouldRetry());
         $this->assertStringContainsString(
             'Non-retryable',
             $decision->reason()
         );
-    } 
-    
+    }
+
     private function realJob(): Job
     {
         return new Job(
@@ -47,4 +49,3 @@ final class NonRetryableExceptionTest extends TestCase
         );
     }
 }
-

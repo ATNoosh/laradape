@@ -13,6 +13,7 @@ use Core\Job\JobState;
 use Core\ValueObject\JobId;
 use Core\Error\RecoverableException;
 use Core\Error\FatalException;
+use Core\Execution\RetryContext;
 use Core\Execution\RetryPolicy;
 use Core\Execution\RetryResult;
 use Core\Job\JobResult;
@@ -60,16 +61,11 @@ final class DecisionMatrixFatalStep implements PipelineStep
 // Test Doubles - Retry Policies
 final class SingleRetryPolicy implements RetryPolicy
 {
-    public function decide(
-        Job $job,
-        JobResult $result,
-        ?\Throwable $exception = null,
-        int $attempt = 1
-    ): RetryResult {
-        if ($attempt >= 2) {
+    public function decide(RetryContext $context): RetryResult {
+        if ($context->attempt >= 2) {
             return RetryResult::doNotRetry('Number of attepts exceeds from 2');
         }
-        if ($result->isFailed()) {
+        if ($context->result->isFailed()) {
             return RetryResult::retry(0);
         }
         return RetryResult::doNotRetry('Simple Reason');
@@ -78,12 +74,7 @@ final class SingleRetryPolicy implements RetryPolicy
 
 final class NoRetryPolicy implements RetryPolicy
 {
-    public function decide(
-        Job $job,
-        JobResult $result,
-        ?\Throwable $exception = null,
-        int $attempt = 1
-    ): RetryResult {
+    public function decide(RetryContext $context): RetryResult {
         return RetryResult::doNotRetry('Do not retry');
     }
 }
