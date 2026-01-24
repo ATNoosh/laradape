@@ -4,19 +4,25 @@ namespace Core\Execution;
 
 use Core\Job\Job;
 
-final class InMemoryRetryMetricsObserver implements RetryObserver
+final class InMemoryRetryMetricsObserver implements RetryMetricsObserver
 {
     public int $scheduled = 0;
-    public int $stopped = 0;
+    public int $aborted   = 0;
+    public int $succeeded = 0;
 
-    public function retryScheduled(Job $job, int $attempt, int $delayMs, string $reason): void
+    public function retryScheduled(RetryContext $context, RetryResult $decision): void
     {
         $this->scheduled++;
     }
 
-    public function retryStopped(Job $job, int $attempt, string $reason): void
+    public function retryAborted(RetryContext $context, RetryResult $decision): void
     {
-        $this->stopped++;
+        $this->aborted++;
+    }
+
+    public function retrySucceeded(RetryContext $context): void
+    {
+        $this->succeeded++;
     }
 }
 

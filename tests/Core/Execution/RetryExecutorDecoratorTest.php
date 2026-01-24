@@ -172,7 +172,7 @@ final class RetryExecutorDecoratorTest extends TestCase
         $executor = new RetryExecutorDecorator(
             new AlwaysFailExecutor(),
             $policy,
-            $metrics
+            metrics: $metrics
         );
 
         $job = new Job(new JobId('job-x'), $this->createMock(Pipeline::class));
@@ -180,7 +180,7 @@ final class RetryExecutorDecoratorTest extends TestCase
         $executor->execute($job);
 
         $this->assertSame(2, $metrics->scheduled); // two retries
-        $this->assertSame(1, $metrics->stopped);   // final stop
+        $this->assertSame(1, $metrics->aborted);   // final stop
     }
 }
 
@@ -212,4 +212,3 @@ final class AlwaysFailExecutor implements Executor
         );
     }
 }
-
