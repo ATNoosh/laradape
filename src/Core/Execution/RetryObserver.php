@@ -6,6 +6,9 @@ use Core\Job\Job;
 
 interface RetryObserver
 {
-    public function retryScheduled(Job $job, int $attempt, int $delayMs, string $reason): void;
-    public function retryStopped(Job $job, int $attempt, string $reason): void;
+    public function retryScheduled(RetryContext $context, RetryResult $decision): void;
+
+    public function retryAborted(RetryContext $context, RetryResult $decision): void;
+
+    public function retrySucceeded(RetryContext $context): void;
 }

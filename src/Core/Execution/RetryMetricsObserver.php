@@ -2,11 +2,7 @@
 
 namespace Core\Execution;
 
-interface RetryMetricsObserver
+interface RetryMetricsObserver extends RetryObserver
 {
-    public function retryScheduled(RetryContext $context, RetryResult $decision): void;
-
-    public function retryAborted(RetryContext $context, RetryResult $decision): void;
-
-    public function retrySucceeded(RetryContext $context): void;
+    public function export(): array;
 }

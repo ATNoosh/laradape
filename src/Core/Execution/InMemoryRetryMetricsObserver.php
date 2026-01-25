@@ -24,5 +24,14 @@ final class InMemoryRetryMetricsObserver implements RetryMetricsObserver
     {
         $this->succeeded++;
     }
+    public function export(): array
+    {
+        return [
+            'retry_scheduled_total' => $this->scheduled,
+            'retry_aborted_total'   => $this->aborted,
+            'retry_succeeded_total' => $this->succeeded,
+        ];
+    }
+
 }
 

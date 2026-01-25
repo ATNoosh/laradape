@@ -60,7 +60,7 @@ final class RetryExecutorDecorator implements Executor
             }
 
             if (! $decision->shouldRetry()) {
-                $this->observer?->retryStopped($job, $attempt, $decision->reason());
+                $this->observer?->retryAborted($context, $decision);
                 $this->metrics?->retryAborted($context, $decision);
 
                 return $report ?? JobReport::failed(
@@ -70,10 +70,8 @@ final class RetryExecutorDecorator implements Executor
             }
 
             $this->observer?->retryScheduled(
-                $job,
-                $attempt,
-                $decision->delayMs() ?? 0,
-                $decision->reason()
+                $context,
+                $decision
             );
             $this->metrics?->retryScheduled($context, $decision);
 
