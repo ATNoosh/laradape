@@ -13,10 +13,12 @@ use Core\Job\JobState;
 use Core\ValueObject\JobId;
 use Core\Error\RecoverableException;
 use Core\Error\FatalException;
+use Core\Execution\JobReport;
+use Core\Execution\RetryCommand;
 use Core\Execution\RetryContext;
 use Core\Execution\RetryPolicy;
 use Core\Execution\RetryResult;
-use Core\Job\JobResult;
+use Core\Execution\RetryScheduler;
 
 // Test Doubles - Steps
 final class DecisionMatrixSuccessfulStep implements PipelineStep
@@ -61,7 +63,8 @@ final class DecisionMatrixFatalStep implements PipelineStep
 // Test Doubles - Retry Policies
 final class SingleRetryPolicy implements RetryPolicy
 {
-    public function decide(RetryContext $context): RetryResult {
+    public function decide(RetryContext $context): RetryResult
+    {
         if ($context->attempt >= 2) {
             return RetryResult::doNotRetry('Number of attepts exceeds from 2');
         }
@@ -74,7 +77,8 @@ final class SingleRetryPolicy implements RetryPolicy
 
 final class NoRetryPolicy implements RetryPolicy
 {
-    public function decide(RetryContext $context): RetryResult {
+    public function decide(RetryContext $context): RetryResult
+    {
         return RetryResult::doNotRetry('Do not retry');
     }
 }
@@ -153,22 +157,22 @@ final class ExecutorDecisionMatrixTest extends TestCase
             new TimeBox(time(), 60)
         );
 
+        $scheduler = new InMemoryRetryScheduler();
+
         $executor = new RetryExecutorDecorator(
             $baseExecutor,
-            new SingleRetryPolicy()
+            new SingleRetryPolicy(),
+            $scheduler,
+            null
         );
 
         $job = new Job(
             new JobId('job-retry-ok'),
             new DefaultPipeline([new DecisionMatrixFlakyRecoverableStep()])
         );
+        $report = $this->runUntilDone($executor, $scheduler, $job);
 
-        $report = $executor->execute($job);
-
-        $this->assertSame(
-            JobState::COMPLETED,
-            $report->result()->state()
-        );
+        $this->assertSame(JobState::COMPLETED, $report->result()->state());
     }
 
     public function test_executor_fails_after_retry_exhausted(): void
@@ -177,9 +181,13 @@ final class ExecutorDecisionMatrixTest extends TestCase
             new TimeBox(time(), 60)
         );
 
+        $scheduler = new InMemoryRetryScheduler();
+
         $executor = new RetryExecutorDecorator(
             $baseExecutor,
-            new NoRetryPolicy()
+            new SingleRetryPolicy(),
+            $scheduler,
+            null
         );
 
         $job = new Job(
@@ -212,5 +220,31 @@ final class ExecutorDecisionMatrixTest extends TestCase
             JobState::FAILED,
             $report->result()->state()
         );
+    }
+    private function runUntilDone(RetryExecutorDecorator $executor, InMemoryRetryScheduler $scheduler, Job $job): JobReport
+    {
+        $report = $executor->execute($job);
+
+        $command = null;
+
+        do {
+            $report = $executor->execute($job, $command);
+            $command = $scheduler->next();
+        } while ($command !== null);
+
+        return $report;
+    }
+}
+final class InMemoryRetryScheduler implements RetryScheduler
+{
+    public array $scheduled = [];
+
+    public function schedule(RetryCommand $command): void
+    {
+        $this->scheduled[] = $command;
+    }
+    public function next(): ?RetryCommand
+    {
+        return array_shift($this->scheduled);
     }
 }

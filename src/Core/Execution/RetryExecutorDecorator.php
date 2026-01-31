@@ -11,75 +11,67 @@ final class RetryExecutorDecorator implements Executor
     public function __construct(
         private Executor $inner,
         private RetryPolicy $policy,
-        private ?RetryObserver $observer = null,
-        private ?RetryMetricsObserver $metrics = null
+        private RetryScheduler $scheduler,
+        private ?RetryObserver $observer = null
     ) {}
 
-    public function execute(Job $job): JobReport
+    public function execute(Job $job, ?RetryCommand $command = null): JobReport
     {
-        $attempt = 1;
-        $startedAt = microtime(true);
+        $attempt   = $command?->attempt() ?? 1;
+        $startedAt = $command?->startedAt() ?? microtime(true);
 
-        while (true) {
-            try {
-                $report = $this->inner->execute($job);
+        try {
+            $report = $this->inner->execute($job);
 
-                if ($report->result()->isCompleted()) {
-                    $this->metrics?->retrySucceeded(
-                        new RetryContext(
-                            job: $job,
-                            result: $report->result(),
-                            exception: null,
-                            attempt: $attempt,
-                            startedAt: $startedAt
-                        )
-                    );
-
-                    return $report;
-                }
-
-                $context = new RetryContext(
-                    job: $job,
-                    result: $report->result(),
-                    exception: null,
-                    attempt: $attempt,
-                    startedAt: $startedAt
+            if ($report->result()->isCompleted()) {
+                $this->observer?->retrySucceeded(
+                    new RetryContext($job, $report->result(), null, $attempt, $startedAt)
                 );
 
-                $decision = $this->policy->decide($context);
-            } catch (Throwable $e) {
-                $context = new RetryContext(
-                    job: $job,
-                    result: JobResult::failed($e->getMessage()),
-                    exception: $e,
-                    attempt: $attempt,
-                    startedAt: $startedAt
-                );
-
-                $decision = $this->policy->decide($context);
+                return $report;
             }
 
-            if (! $decision->shouldRetry()) {
-                $this->observer?->retryAborted($context, $decision);
-                $this->metrics?->retryAborted($context, $decision);
-
-                return $report ?? JobReport::failed(
-                    $job->id(),
-                    $decision->reason()
-                );
-            }
-
-            $this->observer?->retryScheduled(
-                $context,
-                $decision
+            $context = new RetryContext(
+                job: $job,
+                result: $report->result(),
+                exception: null,
+                attempt: $attempt,
+                startedAt: $startedAt
             );
-            $this->metrics?->retryScheduled($context, $decision);
+        } catch (Throwable $e) {
 
-            if ($decision->delayMs() !== null && $decision->delayMs() > 0) {
-                usleep($decision->delayMs() * 1000);
-            }
+            $report = JobReport::failed(
+                $job->id(),
+                $e->getMessage()
+            );
 
-            $attempt++;
+            $context = new RetryContext(
+                job: $job,
+                result: $report->result(),
+                exception: $e,
+                attempt: $attempt,
+                startedAt: $startedAt
+            );
         }
+
+        $decision = $this->policy->decide($context);
+
+        if (! $decision->shouldRetry()) {
+            $this->observer?->retryAborted($context, $decision);
+            return $report;
+        }
+
+        $this->observer?->retryScheduled($context, $decision);
+
+        $this->scheduler->schedule(
+            new RetryCommand(
+                jobId: $job->id()->value(),
+                attempt: $attempt + 1,
+                startedAt: $startedAt,
+                delayMs: $decision->delayMs() ?? 0
+            )
+        );
+
+        return $report;
     }
 }

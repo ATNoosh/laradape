@@ -38,12 +38,14 @@ final class RetryMetricsObserverTest extends TestCase
             maxDelayMs: 0
         );
 
-        $metrics = new InMemoryRetryMetricsObserver();
+        $metrics   = new InMemoryRetryMetricsObserver();
+        $scheduler = new InMemoryRetryScheduler();
 
         $retryExecutor = new RetryExecutorDecorator(
             $executor,
             $policy,
-            metrics: $metrics
+            $scheduler,
+            observer: $metrics
         );
 
         $job = new Job(
@@ -51,7 +53,11 @@ final class RetryMetricsObserverTest extends TestCase
             $this->createMock(Pipeline::class)
         );
 
-        $report = $retryExecutor->execute($job);
+        $report = $retryExecutor->execute($job, null);
+
+        while ($command = $scheduler->next()) {
+            $report = $retryExecutor->execute($job, $command);
+        }
 
         $this->assertSame(JobResult::STATE_COMPLETED, $report->result()->state());
         $this->assertSame(2, $metrics->scheduled);

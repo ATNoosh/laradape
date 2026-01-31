@@ -26,18 +26,22 @@ final class RetryExecutorDecoratorTest extends TestCase
     public function test_retries_on_failure_until_success(): void
     {
         $jobId = new JobId('test-job');
+
         $executor = new CountingExecutor([
             JobReport::failed($jobId, 'failed 1'),
             JobReport::failed($jobId, 'failed 2'),
             JobReport::completed($jobId),
         ]);
 
+        $scheduler = new InMemoryRetryScheduler();
+
         $decorated = new RetryExecutorDecorator(
             $executor,
-            new SimpleRetryPolicy(3)
+            new SimpleRetryPolicy(3),
+            $scheduler
         );
 
-        $report = $decorated->execute($this->job());
+        $report = $this->runRetryLoop($decorated, $scheduler, $this->job());
 
         $this->assertSame(3, $executor->calls);
         $this->assertTrue($report->result()->isCompleted());
@@ -46,17 +50,21 @@ final class RetryExecutorDecoratorTest extends TestCase
     public function test_stops_after_max_retries(): void
     {
         $jobId = new JobId('test-job');
+
         $executor = new CountingExecutor([
             JobReport::failed($jobId, 'failed 1'),
             JobReport::failed($jobId, 'failed 2'),
         ]);
 
+        $scheduler = new InMemoryRetryScheduler();
+
         $decorated = new RetryExecutorDecorator(
             $executor,
-            new SimpleRetryPolicy(2)
+            new SimpleRetryPolicy(2),
+            $scheduler
         );
 
-        $report = $decorated->execute($this->job());
+        $report = $this->runRetryLoop($decorated, $scheduler, $this->job());
 
         $this->assertSame(2, $executor->calls);
         $this->assertTrue($report->result()->isFailed());
@@ -65,45 +73,52 @@ final class RetryExecutorDecoratorTest extends TestCase
     public function test_does_not_retry_on_success(): void
     {
         $jobId = new JobId('test-job');
+
         $executor = new CountingExecutor([
             JobReport::completed($jobId),
         ]);
 
+        $scheduler = new InMemoryRetryScheduler();
+
         $decorated = new RetryExecutorDecorator(
             $executor,
-            new SimpleRetryPolicy(5)
+            new SimpleRetryPolicy(5),
+            $scheduler
         );
 
-        $decorated->execute($this->job());
+        $report = $this->runRetryLoop($decorated, $scheduler, $this->job());
 
         $this->assertSame(1, $executor->calls);
+        $this->assertEmpty($scheduler->scheduled);
+        $this->assertTrue($report->result()->isCompleted());
     }
 
     public function test_retry_with_delay(): void
     {
         $jobId = new JobId('test-job');
+    
         $executor = new CountingExecutor([
             JobReport::failed($jobId, 'failed 1'),
             JobReport::completed($jobId),
         ]);
-
-        $start = microtime(true);
+    
+        $scheduler = new InMemoryRetryScheduler();
+    
         $decorated = new RetryExecutorDecorator(
             $executor,
-            new SimpleRetryPolicy(2, 10) // 10ms delay
+            new SimpleRetryPolicy(2, 10), // 10ms delay
+            $scheduler
         );
-
-        $report = $decorated->execute($this->job());
-        $duration = (microtime(true) - $start) * 1000;
-
-        $this->assertSame(2, $executor->calls);
-        $this->assertTrue($report->result()->isCompleted());
-        $this->assertGreaterThan(5, $duration);
+    
+        $decorated->execute($this->job(), null);
+    
+        $this->assertCount(1, $scheduler->scheduled);
+        $this->assertSame(10, $scheduler->scheduled[0]->delayMs());
     }
-
+    
     public function test_retry_handles_exceptions(): void
     {
-        $failingExecutor = new class implements Executor {
+        $executor = new class implements Executor {
             private int $calls = 0;
 
             public function execute(Job $job): JobReport
@@ -112,25 +127,30 @@ final class RetryExecutorDecoratorTest extends TestCase
                 if ($this->calls < 2) {
                     throw new \RuntimeException('Temporary failure');
                 }
+
                 return JobReport::completed($job->id());
             }
         };
 
+        $scheduler = new InMemoryRetryScheduler();
+
         $decorated = new RetryExecutorDecorator(
-            $failingExecutor,
-            new SimpleRetryPolicy(2)
+            $executor,
+            new SimpleRetryPolicy(2),
+            $scheduler
         );
 
-        $report = $decorated->execute($this->job());
+        $report = $this->runRetryLoop($decorated, $scheduler, $this->job());
 
         $this->assertTrue($report->result()->isCompleted());
     }
+
 
     public function test_job_is_retried_until_success(): void
     {
         $attempts = 0;
 
-        $failingThenSuccessExecutor = new class($attempts) implements Executor {
+        $executor = new class($attempts) implements Executor {
             public function __construct(private int &$attempts) {}
 
             public function execute(Job $job): JobReport
@@ -138,49 +158,66 @@ final class RetryExecutorDecoratorTest extends TestCase
                 $this->attempts++;
 
                 if ($this->attempts < 3) {
-                    return JobReport::failed(
-                        $job->id(),
-                        'Failed Message'
-                    );
+                    return JobReport::failed($job->id(), 'Failed');
                 }
 
                 return JobReport::completed($job->id());
             }
         };
 
-        $policy = new ExponentialBackoffRetryPolicy(5, 0, 0); // بدون delay برای تست
+        $scheduler = new InMemoryRetryScheduler();
 
-        $executor = new RetryExecutorDecorator(
-            $failingThenSuccessExecutor,
-            $policy
+        $decorated = new RetryExecutorDecorator(
+            $executor,
+            new ExponentialBackoffRetryPolicy(5, 0, 0),
+            $scheduler
         );
 
-        $job = new Job(new JobId('retry-job'), $this->createMock(Pipeline::class));
+        $report = $this->runRetryLoop($decorated, $scheduler, $this->job());
 
-        $report = $executor->execute($job);
-
-        $this->assertSame(JobResult::STATE_COMPLETED, $report->result()->state());
         $this->assertSame(3, $attempts);
+        $this->assertTrue($report->result()->isCompleted());
     }
 
     public function test_retry_metrics_are_recorded(): void
     {
-        $metrics = new InMemoryRetryMetricsObserver();
-
-        $policy = new ExponentialBackoffRetryPolicy(3, 0, 0);
-
+        $metrics   = new InMemoryRetryMetricsObserver();
+        $scheduler = new InMemoryRetryScheduler();
+    
         $executor = new RetryExecutorDecorator(
             new AlwaysFailExecutor(),
-            $policy,
-            metrics: $metrics
+            new ExponentialBackoffRetryPolicy(3, 0, 0),
+            $scheduler,
+            observer: $metrics
         );
-
-        $job = new Job(new JobId('job-x'), $this->createMock(Pipeline::class));
-
-        $executor->execute($job);
-
-        $this->assertSame(2, $metrics->scheduled); // two retries
+    
+        $job = $this->job();
+    
+        $executor->execute($job, null);
+    
+        while ($command = $scheduler->next()) {
+            $executor->execute($job, $command);
+        }
+    
+        $this->assertSame(2, $metrics->scheduled); // retries
         $this->assertSame(1, $metrics->aborted);   // final stop
+    }
+    
+
+    private function runRetryLoop(
+        RetryExecutorDecorator $executor,
+        InMemoryRetryScheduler $scheduler,
+        Job $job
+    ): JobReport {
+        $command = null;
+        $report  = null;
+
+        do {
+            $report  = $executor->execute($job, $command);
+            $command = $scheduler->next();
+        } while ($command !== null);
+
+        return $report;
     }
 }
 
