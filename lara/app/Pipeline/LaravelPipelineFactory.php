@@ -4,17 +4,20 @@ namespace App\Pipeline;
 
 use Core\Pipeline\Pipeline;
 use Core\Pipeline\PipelineFactory;
+use InvalidArgumentException;
 
 final class LaravelPipelineFactory implements PipelineFactory
 {
+    public function __construct(
+        private array $pipelines // ['import' => fn() => new ImportPipeline()]
+    ) {}
+
     public function make(string $name): Pipeline
     {
-        // TODO: Implement pipeline creation by name
-        // For now, this is a stub implementation
-        // In the future, this should resolve pipelines from configuration or container
-        throw new \RuntimeException(
-            "PipelineFactory::make() is not yet implemented. Pipeline '{$name}' cannot be created."
-        );
+        if (! isset($this->pipelines[$name])) {
+            throw new InvalidArgumentException("Unknown pipeline [$name]");
+        }
+
+        return ($this->pipelines[$name])();
     }
 }
-

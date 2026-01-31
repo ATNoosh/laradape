@@ -15,6 +15,7 @@ return new class extends Migration
             $table->id();
             $table->string('queue')->index();
             $table->longText('payload');
+            $table->longText('pipeline_name');
             $table->unsignedTinyInteger('attempts');
             $table->unsignedInteger('reserved_at')->nullable();
             $table->unsignedInteger('available_at');
