@@ -48,6 +48,12 @@ final class JobSystemObservabilityTest extends TestCase
         $job = new Job(
             new JobId('test-job'),
             new class implements Pipeline {
+
+                public function name(): string
+                {
+                    return 'dummy';
+                }
+
                 public function run(PipelineContext $context): PipelineResult
                 {
                     return PipelineResult::success();
@@ -101,6 +107,12 @@ final class JobSystemObservabilityTest extends TestCase
         $job = new Job(
             new JobId('failing-job'),
             new class implements Pipeline {
+
+                public function name(): string
+                {
+                    return 'dummy';
+                }
+
                 public function run(PipelineContext $context): PipelineResult
                 {
                     return PipelineResult::success();
@@ -154,6 +166,12 @@ final class JobSystemObservabilityTest extends TestCase
         $job = new Job(
             new JobId('timed-job'),
             new class implements Pipeline {
+
+                public function name(): string
+                {
+                    return 'dummy';
+                }
+
                 public function run(PipelineContext $context): PipelineResult
                 {
                     return PipelineResult::success();

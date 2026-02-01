@@ -21,6 +21,12 @@ final class PrometheusRetryMetricsObserverTest extends TestCase
 
         // Pipeline dummy
         $pipeline = new class implements Pipeline {
+
+            public function name(): string
+            {
+                return 'dummy';
+            }
+
             public function run(PipelineContext $context): PipelineResult
             {
                 return PipelineResult::success();
@@ -49,5 +55,4 @@ final class PrometheusRetryMetricsObserverTest extends TestCase
         $this->assertSame(1, $metrics['retry_scheduled_total']);
         $this->assertSame(1, $metrics['retry_succeeded_total']);
     }
-
 }

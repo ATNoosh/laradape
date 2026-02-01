@@ -14,6 +14,12 @@ final class PipelineFactoryContractTest extends TestCase
             public function make(string $string): Pipeline
             {
                 return new class implements Pipeline {
+
+                    public function name(): string
+                    {
+                        return 'dummy';
+                    }
+
                     public function run(PipelineContext $context): PipelineResult
                     {
                         return PipelineResult::success();

@@ -41,6 +41,12 @@ final class NonRetryableExceptionTest extends TestCase
         return new Job(
             new JobId('job-x'),
             new class implements Pipeline {
+
+                public function name(): string
+                {
+                    return 'dummy';
+                }
+
                 public function run(PipelineContext $context): PipelineResult
                 {
                     return PipelineResult::success();

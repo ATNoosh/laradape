@@ -19,14 +19,19 @@ final class DefaultPipeline implements Pipeline
         }
     }
 
+    public function name(): string
+    {
+        return 'dummy';
+    }
+
     public function run(PipelineContext $context): PipelineResult
     {
         foreach ($this->steps as $step) {
             try {
                 $result = $step->execute($context);
                 if (! $result->isSuccess()) {
-                    return $result; 
-                }        
+                    return $result;
+                }
             } catch (PipelineException $e) {
                 // Domain-level exception → bubble up
                 throw $e;

@@ -9,6 +9,11 @@ final class ObservedPipeline implements Pipeline
         private PipelineObserver $observer
     ) {}
 
+    public function name(): string
+    {
+        return 'dummy';
+    }
+
     public function run(PipelineContext $context): PipelineResult
     {
         $start = microtime(true);

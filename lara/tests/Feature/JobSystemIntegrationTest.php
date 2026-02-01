@@ -22,6 +22,12 @@ final class JobSystemIntegrationTest extends TestCase
         $job = new Job(
             new JobId('integration-job'),
             new class implements Pipeline {
+
+                public function name(): string
+                {
+                    return 'dummy';
+                }
+
                 public function run(PipelineContext $context): PipelineResult
                 {
                     $context->set('value', 42);

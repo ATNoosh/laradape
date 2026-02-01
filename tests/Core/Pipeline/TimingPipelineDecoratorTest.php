@@ -46,6 +46,12 @@ final class TestObserver implements PipelineObserver
 }
 final class SpyPipeline implements Pipeline
 {
+    
+    public function name(): string
+    {
+        return 'dummy';
+    }
+
     public ?PipelineResult $result = null;
 
     public function run(PipelineContext $context): PipelineResult
