@@ -9,7 +9,7 @@ final class JobReport
 {
     private function __construct(
         private JobId $jobId,
-        private JobResult $result
+        private ?JobResult $result
     ) {}
 
     public static function completed(JobId $jobId): self
@@ -36,6 +36,11 @@ final class JobReport
         );
     }
 
+    public static function skipped(JobId $id): self
+    {
+        return new self($id, null);
+    }
+
     public function jobId(): JobId
     {
         return $this->jobId;
@@ -60,5 +65,10 @@ final class JobReport
     public function isTimedOut(): bool
     {
         return $this->result->isTimedOut();
+    }
+
+    public function isSkipped(): bool
+    {
+        return $this->result === null;
     }
 }
