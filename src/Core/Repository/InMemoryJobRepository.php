@@ -2,6 +2,7 @@
 
 namespace Core\Repository;
 
+use Core\Execution\JobRepository;
 use Core\Job\Job;
 use Core\ValueObject\JobId;
 use RuntimeException;

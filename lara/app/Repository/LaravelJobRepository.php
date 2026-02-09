@@ -3,17 +3,8 @@
 namespace App\Repository;
 
 use App\Models\JobModel;
+use Core\Execution\JobRepository;
 use Core\Job\Job;
-use Core\Repository\JobRepository;
-use Core\ValueObject\JobId;
-use Core\Pipeline\PipelineFactory;
-use RuntimeException;
-
-namespace App\Repository;
-
-use App\Models\JobModel;
-use Core\Job\Job;
-use Core\Repository\JobRepository;
 use Core\ValueObject\JobId;
 use Core\Pipeline\PipelineFactory;
 use RuntimeException;

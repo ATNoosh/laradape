@@ -2,5 +2,6 @@
 
 return [
     App\Providers\AppServiceProvider::class,
-    App\Providers\JobSystemServiceProvider::class,
+    App\Providers\ExecutionServiceProvider::class,
+    App\Providers\PipelineServiceProvider::class,
 ];

@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use Core\Execution\JobRepository;
 use Core\ValueObject\JobId;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -10,7 +11,6 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Core\Execution\RetryCommand;
 use Core\Execution\RetryExecutorDecorator;
-use Core\Repository\JobRepository;
 
 final class RetryJob implements ShouldQueue
 {

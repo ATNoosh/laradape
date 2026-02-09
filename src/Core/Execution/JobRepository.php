@@ -1,6 +1,6 @@
 <?php
 
-namespace Core\Repository;
+namespace Core\Execution;
 
 use Core\Job\Job;
 use Core\ValueObject\JobId;

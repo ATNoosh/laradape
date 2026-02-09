@@ -13,10 +13,6 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        $this->app->bind(
-            RetryScheduler::class,
-            LaravelRetryScheduler::class
-        );    
     }
 
     /**
@@ -24,6 +20,5 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
     }
 }

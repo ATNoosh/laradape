@@ -21,7 +21,7 @@ final class DefaultPipeline implements Pipeline
 
     public function name(): string
     {
-        return 'dummy';
+        return static::class;
     }
 
     public function run(PipelineContext $context): PipelineResult
