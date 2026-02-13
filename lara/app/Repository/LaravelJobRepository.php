@@ -21,6 +21,10 @@ final class LaravelJobRepository implements JobRepository
             ['id' => $job->id()->value()],
             [
                 'pipeline_name' => $job->pipeline()->name(),
+                'status' => 'pending',
+                'queue' => $job->queue(),
+                'created_at' => now(),
+                'updated_at' => now(),
             ]
         );
     }

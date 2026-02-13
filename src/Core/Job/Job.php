@@ -10,7 +10,8 @@ final class Job
     public function __construct(
         private JobId $id,
         private Pipeline $pipeline,
-        private string $state = JobState::PENDING
+        private string $state = JobState::PENDING,
+        private string $queue = 'default'
     ) {}
 
     public function id(): JobId
@@ -26,5 +27,10 @@ final class Job
     public function state(): string
     {
         return $this->state;
+    }
+
+    public function queue(): string
+    {
+        return $this->queue;
     }
 }

@@ -11,6 +11,8 @@ final class JobModel extends Model
     protected $fillable = [
         'id',
         'pipeline_name',
+        'status',
+        'queue'
     ];
 
     public $incrementing = false;
