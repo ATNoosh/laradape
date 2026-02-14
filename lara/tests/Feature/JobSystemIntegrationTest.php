@@ -2,11 +2,13 @@
 
 namespace Tests\Feature;
 
+use Core\Execution\Executor;
 use Core\Execution\ExecutorFactory;
 use Tests\TestCase;
 use Core\Job\Job;
 use Core\Job\JobResult;
 use Core\Execution\JobDispatcherInterface;
+use Core\Execution\JobReport;
 use Core\Pipeline\Pipeline;
 use Core\Pipeline\PipelineContext;
 use Core\Pipeline\PipelineFactory;
@@ -16,6 +18,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 
 final class JobSystemIntegrationTest extends TestCase
 {
+    use RefreshDatabase;
     public function test_job_system_bindings_are_resolvable(): void
     {
         $this->assertTrue($this->app->bound(JobDispatcherInterface::class));
@@ -25,11 +28,11 @@ final class JobSystemIntegrationTest extends TestCase
 
     public function test_dispatcher_can_dispatch_a_job(): void
     {
-        $this->app->bind(\Core\Execution\Executor::class, fn () =>
-            new class implements \Core\Execution\Executor {
-                public function execute(Job $job): \Core\Execution\JobReport
+        $this->app->bind(Executor::class, fn () =>
+            new class implements Executor {
+                public function execute(Job $job): JobReport
                 {
-                    return \Core\Execution\JobReport::completed($job->id());
+                    return JobReport::completed($job->id());
                 }
             }
         );
