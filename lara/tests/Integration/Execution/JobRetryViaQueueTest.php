@@ -3,11 +3,11 @@
 namespace Tests\Integration\Execution;
 
 use App\Jobs\RetryJob;
-use Core\Error\RecoverableException;
 use Core\Execution\JobDispatcherInterface;
 use Core\Job\Job;
 use Core\Pipeline\Pipeline;
 use Core\Pipeline\PipelineContext;
+use Core\Pipeline\PipelineError;
 use Core\Pipeline\PipelineResult;
 use Core\ValueObject\JobId;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -63,7 +63,9 @@ final class JobRetryViaQueueTest extends TestCase
 
                 public function run(PipelineContext $context): PipelineResult
                 {
-                    throw new RecoverableException('boom');
+                    return PipelineResult::failure(
+                        new PipelineError('failed', 'boom')
+                    );
                 }
             }
         );

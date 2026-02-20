@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use Core\Execution\JobRepository;
+use Core\Execution\JobDispatcherInterface;
 use Core\ValueObject\JobId;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -10,7 +11,6 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Core\Execution\RetryCommand;
-use Core\Execution\RetryExecutorDecorator;
 
 final class RetryJob implements ShouldQueue
 {
@@ -21,11 +21,11 @@ final class RetryJob implements ShouldQueue
     ) {}
 
     public function handle(
-        RetryExecutorDecorator $executor,
+        JobDispatcherInterface $dispatcher,
         JobRepository $jobs
     ): void {
         $job = $jobs->get(new JobId($this->command->jobId()));
 
-        $executor->execute($job, $this->command);
+        $dispatcher->dispatch($job, $this->command);
     }
 }

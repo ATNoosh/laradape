@@ -3,33 +3,64 @@
 namespace App\Execution;
 
 use App\Jobs\RetryJob;
+use Core\Execution\JobDispatcher;
 use Core\Execution\JobDispatcherInterface;
 use Core\Execution\JobReport;
+use Core\Execution\RetryCommand;
 use Core\Execution\RetryContext;
 use Core\Execution\RetryPolicy;
 use Core\Job\Job;
-use Illuminate\Support\Facades\Queue;
+use Illuminate\Contracts\Bus\Dispatcher;
 
 final class LaravelJobDispatcher implements JobDispatcherInterface
 {
-    private RetryPolicy $retryPolicy;
+    public function __construct(
+        private JobDispatcher $inner,
+        private RetryPolicy $retryPolicy,
+        private Dispatcher $bus
+    ) {}
 
-    public function __construct(RetryPolicy $retryPolicy)
+    public function dispatch(Job $job, ?RetryCommand $command = null): JobReport
     {
-        $this->retryPolicy = $retryPolicy;
-    }
+        $attempt = $command?->attempt() ?? 1;
+        $startedAt = $command?->startedAt() ?? microtime(true);
 
-    public function dispatch(Job $job): JobReport
-    {
-        try {
-            $job->pipeline()->run($job->context());
-        } catch (\Throwable $e) {
-            $context = new RetryContext($job, $job->attempt(), $e);
-            $result = $this->retryPolicy->decide($context);
+        $report = $this->inner->dispatch($job);
 
-            if ($result->shouldRetry) {
-                Queue::later($result->delaySeconds, RetryJob::class, ['job' => $job]);
-            }
+        if (! $report->isFailed()) {
+            return $report;
         }
+
+        $context = new RetryContext(
+            job: $job,
+            result: $report->result(),
+            exception: null,
+            attempt: $attempt,
+            startedAt: $startedAt
+        );
+
+        $decision = $this->retryPolicy->decide($context);
+
+        if (! $decision->shouldRetry()) {
+            return $report;
+        }
+
+        $retry = new RetryJob(
+            new RetryCommand(
+                jobId: $job->id()->value(),
+                attempt: $attempt + 1,
+                startedAt: $startedAt,
+                delayMs: $decision->delayMs() ?? 0
+            )
+        );
+
+        $delaySeconds = (int) ceil(($decision->delayMs() ?? 0) / 1000);
+        if ($delaySeconds > 0) {
+            $retry->delay($delaySeconds);
+        }
+
+        $this->bus->dispatch($retry);
+
+        return $report;
     }
 }

@@ -11,6 +11,7 @@ use Core\Execution\CircuitBreaker;
 use Core\Execution\ExecutorObserver;
 use Core\Execution\SimpleRetryPolicy;
 use Core\Execution\Config\ExecutorConfig;
+use App\Execution\LaravelRetryScheduler;
 
 final class ExecutorDecoratorBuilder
 {
@@ -34,7 +35,8 @@ final class ExecutorDecoratorBuilder
             );
             $executor = new RetryExecutorDecorator(
                 $executor,
-                $retryPolicy
+                $retryPolicy,
+                $this->container->make(LaravelRetryScheduler::class)
             );
         }
 

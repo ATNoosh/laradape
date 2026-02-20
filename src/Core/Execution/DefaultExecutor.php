@@ -22,10 +22,15 @@ final class DefaultExecutor implements Executor
         }
 
         try {
-            $job->pipeline()->run(new PipelineContext());
+            $pipelineResult = $job->pipeline()->run(new PipelineContext());
 
             if ($this->timeBox->isExpired()) {
                 return JobReport::timedOut($job->id());
+            }
+
+            if (! $pipelineResult->isSuccess()) {
+                $errorMessage = $pipelineResult->error()?->message() ?? 'Pipeline failed';
+                return JobReport::failed($job->id(), $errorMessage);
             }
 
             return JobReport::completed($job->id());

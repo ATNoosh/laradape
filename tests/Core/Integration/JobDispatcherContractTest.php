@@ -11,7 +11,7 @@ final class JobDispatcherContractTest extends TestCase
     public function test_job_dispatcher_contract_is_callable(): void
     {
         $dispatcher = new class implements JobDispatcherInterface {
-            public function dispatch(Job $job): JobReport
+            public function dispatch(Job $job, ?\Core\Execution\RetryCommand $command = null): JobReport
             {
                 return JobReport::completed($job->id());
             }

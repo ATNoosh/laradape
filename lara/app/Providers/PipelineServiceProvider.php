@@ -3,11 +3,11 @@
 namespace App\Providers;
 
 use App\Execution\LoggingExecutorObserver;
+use App\Execution\LaravelJobDispatcher;
 use App\Pipeline\LaravelPipelineFactory;
 use Core\Execution\Executor;
 use Core\Execution\ExecutorFactory;
 use Core\Execution\ExecutorObserver;
-use Core\Execution\JobDispatcher;
 use Core\Execution\JobDispatcherInterface;
 use Core\Pipeline\PipelineFactory;
 use Illuminate\Support\ServiceProvider;
@@ -23,7 +23,7 @@ final class PipelineServiceProvider extends ServiceProvider
          */
         $this->app->singleton(
             JobDispatcherInterface::class,
-            JobDispatcher::class
+            LaravelJobDispatcher::class
         );
 
         /*

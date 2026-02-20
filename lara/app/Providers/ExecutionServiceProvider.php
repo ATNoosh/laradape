@@ -8,10 +8,12 @@ use Core\Execution\{
     ComposedExecutor,
     DefaultExecutor,
     JobRepository,
+    RetryPolicy,
     SimpleRetryPolicy,
     TimeBox
 };
 use App\Execution\{
+    DefaultRetryPolicy,
     LaravelRetryScheduler,
     LaravelJobExecutionStore
 };
@@ -38,6 +40,8 @@ final class ExecutionServiceProvider extends ServiceProvider
                 delayMs: config('jobs.retry.delay_ms', 0)
             );
         });
+
+        $this->app->singleton(RetryPolicy::class, DefaultRetryPolicy::class);
 
         // Laravel integrations
         $this->app->singleton(LaravelRetryScheduler::class);

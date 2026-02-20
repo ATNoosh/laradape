@@ -14,7 +14,7 @@ final class JobDispatcher implements JobDispatcherInterface
 
     ) {}
 
-    public function dispatch(Job $job): JobReport
+    public function dispatch(Job $job, ?RetryCommand $command = null): JobReport
     {
         $this->jobs->save($job);
 
