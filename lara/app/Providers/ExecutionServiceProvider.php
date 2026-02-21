@@ -9,11 +9,13 @@ use Core\Execution\{
     DefaultExecutor,
     JobRepository,
     RetryPolicy,
+    RetryMetricsObserver,
     SimpleRetryPolicy,
     TimeBox
 };
 use App\Execution\{
     DefaultRetryPolicy,
+    LaravelRetryMetricsObserver,
     LaravelRetryScheduler,
     LaravelJobExecutionStore
 };
@@ -42,6 +44,7 @@ final class ExecutionServiceProvider extends ServiceProvider
         });
 
         $this->app->singleton(RetryPolicy::class, DefaultRetryPolicy::class);
+        $this->app->singleton(RetryMetricsObserver::class, LaravelRetryMetricsObserver::class);
 
         // Laravel integrations
         $this->app->singleton(LaravelRetryScheduler::class);
@@ -53,7 +56,8 @@ final class ExecutionServiceProvider extends ServiceProvider
                 baseExecutor: $app->make(DefaultExecutor::class),
                 retryPolicy: $app->make(SimpleRetryPolicy::class),
                 scheduler: $app->make(LaravelRetryScheduler::class),
-                executionStore: $app->make(LaravelJobExecutionStore::class)
+                executionStore: $app->make(LaravelJobExecutionStore::class),
+                metrics: $app->make(RetryMetricsObserver::class)
             );
         });
         
