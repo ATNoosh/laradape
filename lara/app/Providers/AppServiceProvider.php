@@ -2,8 +2,6 @@
 
 namespace App\Providers;
 
-use App\Execution\LaravelRetryScheduler;
-use Core\Execution\RetryScheduler;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider

@@ -5,7 +5,6 @@ namespace App\Execution;
 use App\Jobs\RetryJob;
 use Core\Execution\JobDispatcher;
 use Core\Execution\JobDispatcherInterface;
-use Core\Execution\JobReport;
 use Core\Execution\RetryCommand;
 use Core\Execution\RetryContext;
 use Core\Execution\RetryPolicy;

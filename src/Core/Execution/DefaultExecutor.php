@@ -3,8 +3,6 @@
 namespace Core\Execution;
 
 use Core\Job\Job;
-use Core\Job\JobState;
-use Core\Job\JobResult;
 use Core\Pipeline\PipelineContext;
 use Core\Error\RecoverableException;
 use Core\Error\FatalException;
