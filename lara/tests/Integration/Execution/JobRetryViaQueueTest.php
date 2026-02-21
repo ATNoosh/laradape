@@ -3,11 +3,15 @@
 namespace Tests\Integration\Execution;
 
 use App\Jobs\RetryJob;
+use App\Pipeline\LaravelPipelineFactory;
 use Core\Execution\JobDispatcherInterface;
+use Core\Execution\JobRepository;
+use Core\Execution\RetryCommand;
 use Core\Job\Job;
 use Core\Pipeline\Pipeline;
 use Core\Pipeline\PipelineContext;
 use Core\Pipeline\PipelineError;
+use Core\Pipeline\PipelineFactory;
 use Core\Pipeline\PipelineResult;
 use Core\ValueObject\JobId;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -139,5 +143,69 @@ final class JobRetryViaQueueTest extends TestCase
         $dispatcher->dispatch($job);
 
         Queue::assertNothingPushed();
+    }
+
+    public function test_retry_job_executes_pipeline_via_repository_and_dispatcher(): void
+    {
+        // Arrange
+        Queue::fake();
+
+        $this->app->singleton(PipelineFactory::class, function () {
+            return new LaravelPipelineFactory([
+                'retryable' => fn () => new class implements Pipeline {
+                    public function name(): string
+                    {
+                        return 'retryable';
+                    }
+
+                    public function run(PipelineContext $context): PipelineResult
+                    {
+                        return PipelineResult::failure(
+                            new PipelineError('failed', 'boom')
+                        );
+                    }
+                },
+            ]);
+        });
+
+        $jobs = $this->app->make(JobRepository::class);
+        $dispatcher = $this->app->make(JobDispatcherInterface::class);
+
+        $job = new Job(
+            new JobId('retry-exec-1'),
+            new class implements Pipeline {
+                public function name(): string
+                {
+                    return 'retryable';
+                }
+
+                public function run(PipelineContext $context): PipelineResult
+                {
+                    return PipelineResult::failure(
+                        new PipelineError('failed', 'boom')
+                    );
+                }
+            }
+        );
+
+        $jobs->save($job);
+
+        $retryJob = new RetryJob(
+            new RetryCommand(
+                jobId: $job->id()->value(),
+                attempt: 2,
+                startedAt: microtime(true),
+                delayMs: 0
+            )
+        );
+
+        // Act
+        $retryJob->handle($dispatcher, $jobs);
+
+        // Assert
+        Queue::assertPushed(RetryJob::class, function (RetryJob $queued) use ($job) {
+            return $queued->command->jobId() === $job->id()->value()
+                && $queued->command->attempt() === 3;
+        });
     }
 }

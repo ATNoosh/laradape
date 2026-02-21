@@ -39,7 +39,7 @@ final class LaravelJobRepository implements JobRepository
 
         return new Job(
             new JobId($model->id),
-            $this->pipelines->make($model->pipeline)
+            $this->pipelines->make($model->pipeline_name)
         );
     }
 
