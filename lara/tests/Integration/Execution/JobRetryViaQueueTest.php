@@ -78,4 +78,66 @@ final class JobRetryViaQueueTest extends TestCase
         });
 
     }
+
+    public function test_retry_job_receives_delay_from_policy(): void
+    {
+        // Arrange
+        Queue::fake();
+        $this->app['config']->set('jobs.retry.delay_ms', 1500);
+
+        $dispatcher = $this->app->make(JobDispatcherInterface::class);
+
+        $job = new Job(
+            new JobId('retry-delay-1'),
+            new class implements Pipeline {
+                public function name(): string
+                {
+                    return 'failing';
+                }
+
+                public function run(PipelineContext $context): PipelineResult
+                {
+                    return PipelineResult::failure(
+                        new PipelineError('failed', 'boom')
+                    );
+                }
+            }
+        );
+
+        $dispatcher->dispatch($job);
+
+        Queue::assertPushed(RetryJob::class, function (RetryJob $queued) {
+            return $queued->delay === 2;
+        });
+    }
+
+    public function test_retry_is_not_scheduled_when_policy_stops(): void
+    {
+        // Arrange
+        Queue::fake();
+        $this->app['config']->set('jobs.retry.max_attempts', 1);
+
+        $dispatcher = $this->app->make(JobDispatcherInterface::class);
+
+        $job = new Job(
+            new JobId('retry-stop-1'),
+            new class implements Pipeline {
+                public function name(): string
+                {
+                    return 'failing';
+                }
+
+                public function run(PipelineContext $context): PipelineResult
+                {
+                    return PipelineResult::failure(
+                        new PipelineError('failed', 'boom')
+                    );
+                }
+            }
+        );
+
+        $dispatcher->dispatch($job);
+
+        Queue::assertNothingPushed();
+    }
 }
