@@ -10,14 +10,15 @@ use Core\Execution\{
     JobRepository,
     RetryPolicy,
     RetryMetricsObserver,
-    SimpleRetryPolicy,
-    TimeBox
+    SimpleRetryPolicy
 };
 use App\Execution\{
     DefaultRetryPolicy,
     LaravelRetryMetricsObserver,
     LaravelRetryScheduler,
-    LaravelJobExecutionStore
+    LaravelJobExecutionStore,
+    RetryPolicyFactory,
+    TimeBoxFactory
 };
 use App\Repository\LaravelJobRepository;
 
@@ -28,19 +29,13 @@ final class ExecutionServiceProvider extends ServiceProvider
         // Base executor
         $this->app->bind(DefaultExecutor::class, function () {
             return new DefaultExecutor(
-                new TimeBox(
-                    startedAt: time(),
-                    maxSeconds: config('jobs.timeout_seconds', 30)
-                )
+                $this->app->make(TimeBoxFactory::class)->make()
             );
         });
 
         // Retry policy
         $this->app->singleton(SimpleRetryPolicy::class, function () {
-            return new SimpleRetryPolicy(
-                maxAttempts: config('jobs.retry.max_attempts', 3),
-                delayMs: config('jobs.retry.delay_ms', 0)
-            );
+            return $this->app->make(RetryPolicyFactory::class)->make();
         });
 
         $this->app->singleton(RetryPolicy::class, DefaultRetryPolicy::class);
