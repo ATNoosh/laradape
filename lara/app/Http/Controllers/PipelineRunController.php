@@ -41,7 +41,7 @@ final class PipelineRunController extends Controller
             return response()->json([
                 'job_id' => $job->id()->value(),
                 'status' => $status,
-            ]);
+            ], 409);
         }
 
         if (! $report->isSuccessful()) {

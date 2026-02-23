@@ -12,6 +12,7 @@ use Core\Execution\{
     RetryMetricsObserver,
     SimpleRetryPolicy
 };
+use Core\Repository\JobExecutionStore;
 use App\Execution\{
     DefaultRetryPolicy,
     LaravelRetryMetricsObserver,
@@ -44,6 +45,7 @@ final class ExecutionServiceProvider extends ServiceProvider
         // Laravel integrations
         $this->app->singleton(LaravelRetryScheduler::class);
         $this->app->singleton(LaravelJobExecutionStore::class);
+        $this->app->bind(JobExecutionStore::class, LaravelJobExecutionStore::class);
 
         // Final executor
         $this->app->bind(Executor::class, function ($app) {
