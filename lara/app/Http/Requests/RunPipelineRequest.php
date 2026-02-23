@@ -3,6 +3,9 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use App\Http\Responses\ErrorResponse;
+use Illuminate\Contracts\Validation\Validator;
+use Illuminate\Http\Exceptions\HttpResponseException;
 
 final class RunPipelineRequest extends FormRequest
 {
@@ -16,6 +19,17 @@ final class RunPipelineRequest extends FormRequest
         return [
             'job_id' => ['required', 'string'],
         ];
+    }
+
+    protected function failedValidation(Validator $validator): void
+    {
+        throw new HttpResponseException(
+            response()->json(new ErrorResponse(
+                code: 'validation_error',
+                message: 'Invalid request data',
+                details: $validator->errors()->toArray()
+            ), 422)
+        );
     }
 
     public function jobId(): string

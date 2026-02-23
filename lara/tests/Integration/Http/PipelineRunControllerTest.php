@@ -107,7 +107,11 @@ final class PipelineRunControllerTest extends TestCase
         $response = $this->postJson('/pipelines/http/run', []);
 
         $response->assertStatus(422)
-            ->assertJsonValidationErrors(['job_id']);
+            ->assertJson([
+                'code' => 'validation_error',
+                'message' => 'Invalid request data',
+            ])
+            ->assertJsonPath('details.job_id.0', 'The job id field is required.');
     }
 
     public function test_pipeline_run_returns_404_for_unknown_pipeline(): void
@@ -118,7 +122,8 @@ final class PipelineRunControllerTest extends TestCase
 
         $response->assertStatus(404)
             ->assertJson([
-                'error' => 'Unknown pipeline [unknown]',
+                'code' => 'pipeline_not_found',
+                'message' => 'Unknown pipeline [unknown]',
             ]);
     }
 
@@ -146,10 +151,8 @@ final class PipelineRunControllerTest extends TestCase
 
         $response->assertStatus(409)
             ->assertJson([
-                'job_id' => 'http-3',
-                'status' => 'failed',
+                'code' => 'job_conflict',
                 'message' => 'boom',
-                'meta' => [],
             ]);
     }
 
@@ -216,10 +219,8 @@ final class PipelineRunControllerTest extends TestCase
 
         $response->assertStatus(409)
             ->assertJson([
-                'job_id' => 'http-5',
-                'status' => 'skipped',
+                'code' => 'job_conflict',
                 'message' => 'Job already running or completed',
-                'meta' => [],
             ]);
     }
 }
