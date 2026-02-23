@@ -83,4 +83,69 @@ final class PipelineRunControllerTest extends TestCase
             'pipeline_name' => 'http',
         ]);
     }
+
+    public function test_pipeline_run_requires_job_id(): void
+    {
+        $this->app->singleton(PipelineFactory::class, function () {
+            return new LaravelPipelineFactory([
+                'http' => fn () => new class implements Pipeline {
+                    public function name(): string
+                    {
+                        return 'http';
+                    }
+
+                    public function run(PipelineContext $context): PipelineResult
+                    {
+                        return PipelineResult::success();
+                    }
+                },
+            ]);
+        });
+
+        $response = $this->postJson('/pipelines/http/run', []);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['job_id']);
+    }
+
+    public function test_pipeline_run_returns_404_for_unknown_pipeline(): void
+    {
+        $response = $this->postJson('/pipelines/unknown/run', [
+            'job_id' => 'http-2',
+        ]);
+
+        $response->assertStatus(404)
+            ->assertJson([
+                'error' => 'Unknown pipeline [unknown]',
+            ]);
+    }
+
+    public function test_pipeline_run_returns_conflict_on_failure(): void
+    {
+        $this->app->singleton(PipelineFactory::class, function () {
+            return new LaravelPipelineFactory([
+                'http' => fn () => new class implements Pipeline {
+                    public function name(): string
+                    {
+                        return 'http';
+                    }
+
+                    public function run(PipelineContext $context): PipelineResult
+                    {
+                        return PipelineResult::failure(new \Core\Pipeline\PipelineError('X', 'boom'));
+                    }
+                },
+            ]);
+        });
+
+        $response = $this->postJson('/pipelines/http/run', [
+            'job_id' => 'http-3',
+        ]);
+
+        $response->assertStatus(409)
+            ->assertJson([
+                'job_id' => 'http-3',
+                'status' => 'failed',
+            ]);
+    }
 }

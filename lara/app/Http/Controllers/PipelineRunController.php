@@ -37,6 +37,20 @@ final class PipelineRunController extends Controller
             ? 'skipped'
             : $report->result()->state();
 
+        if ($report->isSkipped()) {
+            return response()->json([
+                'job_id' => $job->id()->value(),
+                'status' => $status,
+            ]);
+        }
+
+        if (! $report->isSuccessful()) {
+            return response()->json([
+                'job_id' => $job->id()->value(),
+                'status' => $status,
+            ], 409);
+        }
+
         return response()->json([
             'job_id' => $job->id()->value(),
             'status' => $status,

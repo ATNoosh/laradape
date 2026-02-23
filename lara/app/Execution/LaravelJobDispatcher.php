@@ -27,6 +27,10 @@ final class LaravelJobDispatcher implements JobDispatcherInterface
 
         $report = $this->inner->dispatch($job);
 
+        if ($report->isSkipped()) {
+            return $report;
+        }
+
         if (! $report->isFailed()) {
             return $report;
         }
