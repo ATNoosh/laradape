@@ -76,6 +76,8 @@ final class PipelineRunControllerTest extends TestCase
             ->assertJson([
                 'job_id' => 'http-1',
                 'status' => 'completed',
+                'message' => null,
+                'meta' => [],
             ]);
 
         $this->assertDatabaseHas('jobs', [
@@ -146,6 +148,8 @@ final class PipelineRunControllerTest extends TestCase
             ->assertJson([
                 'job_id' => 'http-3',
                 'status' => 'failed',
+                'message' => 'boom',
+                'meta' => [],
             ]);
     }
 
@@ -179,6 +183,8 @@ final class PipelineRunControllerTest extends TestCase
             ->assertJson([
                 'job_id' => 'http-4',
                 'status' => 'completed',
+                'message' => null,
+                'meta' => [],
             ]);
     }
 
@@ -212,6 +218,8 @@ final class PipelineRunControllerTest extends TestCase
             ->assertJson([
                 'job_id' => 'http-5',
                 'status' => 'skipped',
+                'message' => 'Job already running or completed',
+                'meta' => [],
             ]);
     }
 }

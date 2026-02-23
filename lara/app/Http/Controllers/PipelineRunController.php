@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\RunPipelineRequest;
+use App\Http\Responses\JobResponse;
 use Core\Execution\JobDispatcherInterface;
 use Core\Job\Job;
 use Core\Pipeline\PipelineFactory;
@@ -33,27 +34,12 @@ final class PipelineRunController extends Controller
 
         $report = $dispatcher->dispatch($job);
 
-        $status = $report->isSkipped()
-            ? 'skipped'
-            : $report->result()->state();
+        $payload = JobResponse::fromReport($report);
 
-        if ($report->isSkipped()) {
-            return response()->json([
-                'job_id' => $job->id()->value(),
-                'status' => $status,
-            ], 409);
+        if ($report->isSkipped() || ! $report->isSuccessful()) {
+            return response()->json($payload, 409);
         }
 
-        if (! $report->isSuccessful()) {
-            return response()->json([
-                'job_id' => $job->id()->value(),
-                'status' => $status,
-            ], 409);
-        }
-
-        return response()->json([
-            'job_id' => $job->id()->value(),
-            'status' => $status,
-        ]);
+        return response()->json($payload);
     }
 }
