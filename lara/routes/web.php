@@ -8,3 +8,4 @@ Route::get('/', function () {
 });
 
 Route::post('/pipelines/{name}/run', [PipelineRunController::class, 'run']);
+Route::post('/api/v1/pipelines/{name}/run', [PipelineRunController::class, 'run']);

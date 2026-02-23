@@ -37,6 +37,7 @@ final class PipelineRunControllerTest extends TestCase
     protected function defineRoutes($router): void
     {
         $router->post('/pipelines/{name}/run', [PipelineRunController::class, 'run']);
+        $router->post('/api/v1/pipelines/{name}/run', [PipelineRunController::class, 'run']);
     }
 
     protected function getEnvironmentSetUp($app): void
@@ -82,6 +83,42 @@ final class PipelineRunControllerTest extends TestCase
 
         $this->assertDatabaseHas('jobs', [
             'id' => 'http-1',
+            'pipeline_name' => 'http',
+        ]);
+    }
+
+    public function test_versioned_pipeline_run_endpoint_dispatches_job(): void
+    {
+        $this->app->singleton(PipelineFactory::class, function () {
+            return new LaravelPipelineFactory([
+                'http' => fn () => new class implements Pipeline {
+                    public function name(): string
+                    {
+                        return 'http';
+                    }
+
+                    public function run(PipelineContext $context): PipelineResult
+                    {
+                        return PipelineResult::success();
+                    }
+                },
+            ]);
+        });
+
+        $response = $this->postJson('/api/v1/pipelines/http/run', [
+            'job_id' => 'http-1-v1',
+        ]);
+
+        $response->assertOk()
+            ->assertJson([
+                'job_id' => 'http-1-v1',
+                'status' => 'completed',
+                'message' => null,
+                'meta' => [],
+            ]);
+
+        $this->assertDatabaseHas('jobs', [
+            'id' => 'http-1-v1',
             'pipeline_name' => 'http',
         ]);
     }
