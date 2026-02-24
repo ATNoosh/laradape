@@ -1,0 +1,72 @@
+{
+  "info": {
+    "name": "LaraDape API",
+    "_postman_id": "b4a9f0f4-6f3e-4d3f-ae5c-9f2c4b1d1a01",
+    "description": "Postman collection for LaraDape API v1",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8000" },
+    { "key": "apiKey", "value": "secret" }
+  ],
+  "item": [
+    {
+      "name": "API v1 - Run Pipeline",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "X-API-KEY", "value": "{{apiKey}}" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/pipelines/{{pipelineName}}/run",
+          "host": [ "{{baseUrl}}" ],
+          "path": [ "api", "v1", "pipelines", "{{pipelineName}}", "run" ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"job_id\": \"example-job-1\"\n}"
+        }
+      }
+    },
+    {
+      "name": "API v1 - Run Pipeline (Idempotency)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "X-API-KEY", "value": "{{apiKey}}" },
+          { "key": "Idempotency-Key", "value": "idem-123" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/pipelines/{{pipelineName}}/run",
+          "host": [ "{{baseUrl}}" ],
+          "path": [ "api", "v1", "pipelines", "{{pipelineName}}", "run" ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"job_id\": \"example-job-2\"\n}"
+        }
+      }
+    },
+    {
+      "name": "Legacy - Run Pipeline (Deprecated)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "X-API-KEY", "value": "{{apiKey}}" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/pipelines/{{pipelineName}}/run",
+          "host": [ "{{baseUrl}}" ],
+          "path": [ "pipelines", "{{pipelineName}}", "run" ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"job_id\": \"example-job-legacy\"\n}"
+        }
+      }
+    }
+  ]
+}

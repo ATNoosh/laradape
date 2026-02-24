@@ -1,0 +1,174 @@
+openapi: 3.0.3
+info:
+  title: LaraDape API
+  version: "1.0.0"
+  description: API v1 for running pipelines.
+servers:
+  - url: http://localhost:8000
+paths:
+  /api/v1/pipelines/{name}/run:
+    post:
+      summary: Run a pipeline by name
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RunPipelineRequest'
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseJob'
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        "404":
+          description: Pipeline not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        "409":
+          description: Job conflict (failed or skipped)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        "422":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        "429":
+          description: Rate limited
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+      security:
+        - ApiKeyAuth: []
+  /pipelines/{name}/run:
+    post:
+      summary: Run a pipeline by name (deprecated)
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RunPipelineRequest'
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseJob'
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        "404":
+          description: Pipeline not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        "409":
+          description: Job conflict (failed or skipped)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        "422":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        "429":
+          description: Rate limited
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+      security:
+        - ApiKeyAuth: []
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-KEY
+  schemas:
+    RunPipelineRequest:
+      type: object
+      required:
+        - job_id
+      properties:
+        job_id:
+          type: string
+    JobResponse:
+      type: object
+      properties:
+        job_id:
+          type: string
+        status:
+          type: string
+          enum: [completed, failed, skipped, timed_out]
+        message:
+          type: string
+          nullable: true
+        meta:
+          type: object
+          additionalProperties: true
+    ErrorResponse:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        details:
+          type: object
+          additionalProperties: true
+    ApiResponseJob:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/JobResponse'
+        error:
+          nullable: true
+        meta:
+          type: object
+          additionalProperties: true
+    ApiResponseError:
+      type: object
+      properties:
+        data:
+          nullable: true
+        error:
+          $ref: '#/components/schemas/ErrorResponse'
+        meta:
+          type: object
+          additionalProperties: true
