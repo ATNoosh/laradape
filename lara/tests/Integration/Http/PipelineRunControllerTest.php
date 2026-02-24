@@ -36,8 +36,12 @@ final class PipelineRunControllerTest extends TestCase
 
     protected function defineRoutes($router): void
     {
-        $router->post('/pipelines/{name}/run', [PipelineRunController::class, 'run']);
-        $router->post('/api/v1/pipelines/{name}/run', [PipelineRunController::class, 'run']);
+        $rateLimit = config('jobs.http.rate_limit', '60,1');
+
+        $router->middleware("throttle:{$rateLimit}")->group(function () use ($router) {
+            $router->post('/pipelines/{name}/run', [PipelineRunController::class, 'run']);
+            $router->post('/api/v1/pipelines/{name}/run', [PipelineRunController::class, 'run']);
+        });
     }
 
     protected function getEnvironmentSetUp($app): void
@@ -49,6 +53,7 @@ final class PipelineRunControllerTest extends TestCase
             'database' => ':memory:',
             'prefix' => '',
         ]);
+        $app['config']->set('jobs.http.rate_limit', '2,1');
     }
 
     public function test_pipeline_run_endpoint_dispatches_job(): void
@@ -265,5 +270,32 @@ final class PipelineRunControllerTest extends TestCase
                 'code' => 'job_conflict',
                 'message' => 'Job already running or completed',
             ]);
+    }
+
+    public function test_pipeline_run_is_rate_limited(): void
+    {
+        $this->app->singleton(PipelineFactory::class, function () {
+            return new LaravelPipelineFactory([
+                'http' => fn () => new class implements Pipeline {
+                    public function name(): string
+                    {
+                        return 'http';
+                    }
+
+                    public function run(PipelineContext $context): PipelineResult
+                    {
+                        return PipelineResult::success();
+                    }
+                },
+            ]);
+        });
+
+        $this->postJson('/api/v1/pipelines/http/run', ['job_id' => 'http-rl-1'])
+            ->assertOk();
+        $this->postJson('/api/v1/pipelines/http/run', ['job_id' => 'http-rl-2'])
+            ->assertOk();
+
+        $this->postJson('/api/v1/pipelines/http/run', ['job_id' => 'http-rl-3'])
+            ->assertStatus(429);
     }
 }
