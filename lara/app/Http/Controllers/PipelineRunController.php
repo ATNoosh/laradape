@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\RunPipelineRequest;
+use App\Http\Responses\ApiResponse;
 use App\Http\Responses\ErrorResponse;
 use App\Http\Responses\JobResponse;
 use Core\Execution\JobDispatcherInterface;
@@ -25,9 +26,11 @@ final class PipelineRunController extends Controller
         try {
             $pipeline = $pipelines->make($name);
         } catch (InvalidArgumentException $e) {
-            $response = response()->json(new ErrorResponse(
-                code: 'pipeline_not_found',
-                message: $e->getMessage()
+            $response = response()->json(ApiResponse::error(
+                new ErrorResponse(
+                    code: 'pipeline_not_found',
+                    message: $e->getMessage()
+                )
             ), 404);
             return $this->withDeprecationHeaders($httpRequest, $response);
         }
@@ -43,15 +46,17 @@ final class PipelineRunController extends Controller
 
         if ($report->isSkipped() || ! $report->isSuccessful()) {
             $details = $payload->jsonSerialize();
-            $response = response()->json(new ErrorResponse(
-                code: 'job_conflict',
-                message: (string) ($details['message'] ?? 'Job conflict'),
-                details: $details
+            $response = response()->json(ApiResponse::error(
+                new ErrorResponse(
+                    code: 'job_conflict',
+                    message: (string) ($details['message'] ?? 'Job conflict'),
+                    details: $details
+                )
             ), 409);
             return $this->withDeprecationHeaders($httpRequest, $response);
         }
 
-        $response = response()->json($payload);
+        $response = response()->json(ApiResponse::success($payload));
         return $this->withDeprecationHeaders($httpRequest, $response);
     }
 

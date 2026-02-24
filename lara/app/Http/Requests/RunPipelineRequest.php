@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use App\Http\Responses\ApiResponse;
 use App\Http\Responses\ErrorResponse;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Http\Exceptions\HttpResponseException;
@@ -24,10 +25,12 @@ final class RunPipelineRequest extends FormRequest
     protected function failedValidation(Validator $validator): void
     {
         throw new HttpResponseException(
-            response()->json(new ErrorResponse(
-                code: 'validation_error',
-                message: 'Invalid request data',
-                details: $validator->errors()->toArray()
+            response()->json(ApiResponse::error(
+                new ErrorResponse(
+                    code: 'validation_error',
+                    message: 'Invalid request data',
+                    details: $validator->errors()->toArray()
+                )
             ), 422)
         );
     }

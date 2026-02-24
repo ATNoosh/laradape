@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Http\Responses\ApiResponse;
 use App\Http\Responses\ErrorResponse;
 use Closure;
 use Illuminate\Http\Request;
@@ -19,9 +20,11 @@ final class ApiKeyAuth
         }
 
         if (! hash_equals($expected, $provided)) {
-            return response()->json(new ErrorResponse(
-                code: 'unauthorized',
-                message: 'Invalid API key'
+            return response()->json(ApiResponse::error(
+                new ErrorResponse(
+                    code: 'unauthorized',
+                    message: 'Invalid API key'
+                )
             ), 401);
         }
 
