@@ -11,11 +11,13 @@ use Core\Pipeline\PipelineFactory;
 use Core\ValueObject\JobId;
 use InvalidArgumentException;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 final class PipelineRunController extends Controller
 {
     public function run(
         string $name,
+        Request $httpRequest,
         RunPipelineRequest $request,
         PipelineFactory $pipelines,
         JobDispatcherInterface $dispatcher
@@ -23,10 +25,11 @@ final class PipelineRunController extends Controller
         try {
             $pipeline = $pipelines->make($name);
         } catch (InvalidArgumentException $e) {
-            return response()->json(new ErrorResponse(
+            $response = response()->json(new ErrorResponse(
                 code: 'pipeline_not_found',
                 message: $e->getMessage()
             ), 404);
+            return $this->withDeprecationHeaders($httpRequest, $response);
         }
 
         $job = new Job(
@@ -40,13 +43,29 @@ final class PipelineRunController extends Controller
 
         if ($report->isSkipped() || ! $report->isSuccessful()) {
             $details = $payload->jsonSerialize();
-            return response()->json(new ErrorResponse(
+            $response = response()->json(new ErrorResponse(
                 code: 'job_conflict',
                 message: (string) ($details['message'] ?? 'Job conflict'),
                 details: $details
             ), 409);
+            return $this->withDeprecationHeaders($httpRequest, $response);
         }
 
-        return response()->json($payload);
+        $response = response()->json($payload);
+        return $this->withDeprecationHeaders($httpRequest, $response);
+    }
+
+    private function withDeprecationHeaders(Request $request, JsonResponse $response): JsonResponse
+    {
+        if (str_starts_with($request->path(), 'pipelines/')) {
+            $response->headers->set('Deprecation', 'true');
+            $response->headers->set('Sunset', '2026-12-31');
+            $response->headers->set(
+                'Link',
+                '</api/v1/pipelines/{name}/run>; rel="successor-version"'
+            );
+        }
+
+        return $response;
     }
 }

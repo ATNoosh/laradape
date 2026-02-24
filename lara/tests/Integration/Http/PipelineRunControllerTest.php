@@ -80,6 +80,9 @@ final class PipelineRunControllerTest extends TestCase
                 'message' => null,
                 'meta' => [],
             ]);
+        $response->assertHeader('Deprecation', 'true')
+            ->assertHeader('Sunset', '2026-12-31')
+            ->assertHeader('Link', '</api/v1/pipelines/{name}/run>; rel="successor-version"');
 
         $this->assertDatabaseHas('jobs', [
             'id' => 'http-1',
@@ -116,6 +119,9 @@ final class PipelineRunControllerTest extends TestCase
                 'message' => null,
                 'meta' => [],
             ]);
+        $response->assertHeaderMissing('Deprecation')
+            ->assertHeaderMissing('Sunset')
+            ->assertHeaderMissing('Link');
 
         $this->assertDatabaseHas('jobs', [
             'id' => 'http-1-v1',
