@@ -9,7 +9,6 @@ use Core\Pipeline\PipelineContext;
 use Core\Pipeline\PipelineResult;
 use Core\ValueObject\JobId;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Foundation\Testing\WithFaker;
 use Tests\TestCase;
 
 class JobDispatchWithDatabaseTest extends TestCase

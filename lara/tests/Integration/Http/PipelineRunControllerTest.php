@@ -7,7 +7,6 @@ use App\Http\Middleware\ApiKeyAuth;
 use App\Http\Middleware\IdempotencyKey;
 use App\Pipeline\LaravelPipelineFactory;
 use Core\Repository\JobExecutionStore;
-use Core\Job\Job;
 use Core\Pipeline\Pipeline;
 use Core\Pipeline\PipelineContext;
 use Core\Pipeline\PipelineError;
@@ -205,13 +204,13 @@ final class PipelineRunControllerTest extends TestCase
                         return 'http';
                     }
 
-                public function run(PipelineContext $context): PipelineResult
-                {
+                    public function run(PipelineContext $context): PipelineResult
+                    {
                         return PipelineResult::failure(new PipelineError('X', 'boom'));
-                }
-            },
-        ]);
-    });
+                    }
+                },
+            ]);
+        });
 
         $response = $this->postJson('/pipelines/http/run', [
             'job_id' => 'http-3',
