@@ -3,6 +3,7 @@
 namespace Tests\Integration\Http;
 
 use App\Http\Controllers\PipelineRunController;
+use App\Http\Middleware\ApiKeyAuth;
 use App\Pipeline\LaravelPipelineFactory;
 use Core\Repository\JobExecutionStore;
 use Core\Job\Job;
@@ -38,7 +39,7 @@ final class PipelineRunControllerTest extends TestCase
     {
         $rateLimit = config('jobs.http.rate_limit', '60,1');
 
-        $router->middleware("throttle:{$rateLimit}")->group(function () use ($router) {
+        $router->middleware([ApiKeyAuth::class, "throttle:{$rateLimit}"])->group(function () use ($router) {
             $router->post('/pipelines/{name}/run', [PipelineRunController::class, 'run']);
             $router->post('/api/v1/pipelines/{name}/run', [PipelineRunController::class, 'run']);
         });
@@ -54,6 +55,7 @@ final class PipelineRunControllerTest extends TestCase
             'prefix' => '',
         ]);
         $app['config']->set('jobs.http.rate_limit', '2,1');
+        $app['config']->set('jobs.http.api_key', 'secret');
     }
 
     public function test_pipeline_run_endpoint_dispatches_job(): void
@@ -76,7 +78,7 @@ final class PipelineRunControllerTest extends TestCase
 
         $response = $this->postJson('/pipelines/http/run', [
             'job_id' => 'http-1',
-        ]);
+        ], ['X-API-KEY' => 'secret']);
 
         $response->assertOk()
             ->assertJson([
@@ -115,7 +117,7 @@ final class PipelineRunControllerTest extends TestCase
 
         $response = $this->postJson('/api/v1/pipelines/http/run', [
             'job_id' => 'http-1-v1',
-        ]);
+        ], ['X-API-KEY' => 'secret']);
 
         $response->assertOk()
             ->assertJson([
@@ -152,7 +154,7 @@ final class PipelineRunControllerTest extends TestCase
             ]);
         });
 
-        $response = $this->postJson('/pipelines/http/run', []);
+        $response = $this->postJson('/pipelines/http/run', [], ['X-API-KEY' => 'secret']);
 
         $response->assertStatus(422)
             ->assertJson([
@@ -166,7 +168,7 @@ final class PipelineRunControllerTest extends TestCase
     {
         $response = $this->postJson('/pipelines/unknown/run', [
             'job_id' => 'http-2',
-        ]);
+        ], ['X-API-KEY' => 'secret']);
 
         $response->assertStatus(404)
             ->assertJson([
@@ -195,7 +197,7 @@ final class PipelineRunControllerTest extends TestCase
 
         $response = $this->postJson('/pipelines/http/run', [
             'job_id' => 'http-3',
-        ]);
+        ], ['X-API-KEY' => 'secret']);
 
         $response->assertStatus(409)
             ->assertJson([
@@ -224,11 +226,11 @@ final class PipelineRunControllerTest extends TestCase
 
         $this->postJson('/pipelines/http/run', [
             'job_id' => 'http-4',
-        ])->assertOk();
+        ], ['X-API-KEY' => 'secret'])->assertOk();
 
         $response = $this->postJson('/pipelines/http/run', [
             'job_id' => 'http-4',
-        ]);
+        ], ['X-API-KEY' => 'secret']);
 
         $response->assertOk()
             ->assertJson([
@@ -263,7 +265,7 @@ final class PipelineRunControllerTest extends TestCase
 
         $response = $this->postJson('/pipelines/http/run', [
             'job_id' => 'http-5',
-        ]);
+        ], ['X-API-KEY' => 'secret']);
 
         $response->assertStatus(409)
             ->assertJson([
@@ -290,12 +292,45 @@ final class PipelineRunControllerTest extends TestCase
             ]);
         });
 
-        $this->postJson('/api/v1/pipelines/http/run', ['job_id' => 'http-rl-1'])
+        $this->postJson('/api/v1/pipelines/http/run', ['job_id' => 'http-rl-1'], ['X-API-KEY' => 'secret'])
             ->assertOk();
-        $this->postJson('/api/v1/pipelines/http/run', ['job_id' => 'http-rl-2'])
+        $this->postJson('/api/v1/pipelines/http/run', ['job_id' => 'http-rl-2'], ['X-API-KEY' => 'secret'])
             ->assertOk();
 
-        $this->postJson('/api/v1/pipelines/http/run', ['job_id' => 'http-rl-3'])
+        $this->postJson('/api/v1/pipelines/http/run', ['job_id' => 'http-rl-3'], ['X-API-KEY' => 'secret'])
             ->assertStatus(429);
+    }
+
+    public function test_pipeline_run_requires_api_key(): void
+    {
+        $this->app->singleton(PipelineFactory::class, function () {
+            return new LaravelPipelineFactory([
+                'http' => fn () => new class implements Pipeline {
+                    public function name(): string
+                    {
+                        return 'http';
+                    }
+
+                    public function run(PipelineContext $context): PipelineResult
+                    {
+                        return PipelineResult::success();
+                    }
+                },
+            ]);
+        });
+
+        $this->postJson('/api/v1/pipelines/http/run', ['job_id' => 'http-auth-1'])
+            ->assertStatus(401)
+            ->assertJson([
+                'code' => 'unauthorized',
+                'message' => 'Invalid API key',
+            ]);
+
+        $this->postJson('/api/v1/pipelines/http/run', ['job_id' => 'http-auth-2'], ['X-API-KEY' => 'wrong'])
+            ->assertStatus(401)
+            ->assertJson([
+                'code' => 'unauthorized',
+                'message' => 'Invalid API key',
+            ]);
     }
 }

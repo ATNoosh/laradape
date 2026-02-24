@@ -9,7 +9,8 @@ Route::get('/', function () {
 
 $rateLimit = config('jobs.http.rate_limit', '60,1');
 
-Route::middleware("throttle:{$rateLimit}")->group(function () {
+Route::middleware([ApiKeyAuth::class, "throttle:{$rateLimit}"])->group(function () {
     Route::post('/pipelines/{name}/run', [PipelineRunController::class, 'run']);
     Route::post('/api/v1/pipelines/{name}/run', [PipelineRunController::class, 'run']);
 });
+use App\Http\Middleware\ApiKeyAuth;

@@ -10,5 +10,6 @@ return [
 
     'http' => [
         'rate_limit' => '60,1',
+        'api_key' => null,
     ],
 ];
