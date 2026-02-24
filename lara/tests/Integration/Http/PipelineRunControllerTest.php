@@ -4,6 +4,7 @@ namespace Tests\Integration\Http;
 
 use App\Http\Controllers\PipelineRunController;
 use App\Http\Middleware\ApiKeyAuth;
+use App\Http\Middleware\IdempotencyKey;
 use App\Pipeline\LaravelPipelineFactory;
 use Core\Repository\JobExecutionStore;
 use Core\Job\Job;
@@ -39,7 +40,7 @@ final class PipelineRunControllerTest extends TestCase
     {
         $rateLimit = config('jobs.http.rate_limit', '60,1');
 
-        $router->middleware([ApiKeyAuth::class, "throttle:{$rateLimit}"])->group(function () use ($router) {
+        $router->middleware([ApiKeyAuth::class, IdempotencyKey::class, "throttle:{$rateLimit}"])->group(function () use ($router) {
             $router->post('/pipelines/{name}/run', [PipelineRunController::class, 'run']);
             $router->post('/api/v1/pipelines/{name}/run', [PipelineRunController::class, 'run']);
         });
@@ -56,6 +57,7 @@ final class PipelineRunControllerTest extends TestCase
         ]);
         $app['config']->set('jobs.http.rate_limit', '2,1');
         $app['config']->set('jobs.http.api_key', 'secret');
+        $app['config']->set('jobs.http.idempotency_ttl_seconds', 300);
     }
 
     public function test_pipeline_run_endpoint_dispatches_job(): void
@@ -331,6 +333,44 @@ final class PipelineRunControllerTest extends TestCase
             ->assertJson([
                 'code' => 'unauthorized',
                 'message' => 'Invalid API key',
+            ]);
+    }
+
+    public function test_pipeline_run_idempotency_key_replays_response(): void
+    {
+        $this->app->singleton(PipelineFactory::class, function () {
+            return new LaravelPipelineFactory([
+                'http' => fn () => new class implements Pipeline {
+                    public function name(): string
+                    {
+                        return 'http';
+                    }
+
+                    public function run(PipelineContext $context): PipelineResult
+                    {
+                        return PipelineResult::success();
+                    }
+                },
+            ]);
+        });
+
+        $headers = [
+            'X-API-KEY' => 'secret',
+            'Idempotency-Key' => 'abc-123',
+        ];
+
+        $this->postJson('/api/v1/pipelines/http/run', ['job_id' => 'http-idem-1'], $headers)
+            ->assertOk()
+            ->assertJson([
+                'job_id' => 'http-idem-1',
+                'status' => 'completed',
+            ]);
+
+        $this->postJson('/api/v1/pipelines/http/run', ['job_id' => 'http-idem-2'], $headers)
+            ->assertOk()
+            ->assertJson([
+                'job_id' => 'http-idem-1',
+                'status' => 'completed',
             ]);
     }
 }
