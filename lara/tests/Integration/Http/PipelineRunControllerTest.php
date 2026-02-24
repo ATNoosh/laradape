@@ -40,7 +40,7 @@ final class PipelineRunControllerTest extends TestCase
     {
         $rateLimit = config('jobs.http.rate_limit', '60,1');
 
-        $router->middleware([ApiKeyAuth::class, IdempotencyKey::class, "throttle:{$rateLimit}"])->group(function () use ($router) {
+        $router->middleware([ApiKeyAuth::class, "throttle:{$rateLimit}", IdempotencyKey::class])->group(function () use ($router) {
             $router->post('/pipelines/{name}/run', [PipelineRunController::class, 'run']);
             $router->post('/api/v1/pipelines/{name}/run', [PipelineRunController::class, 'run']);
         });
@@ -414,6 +414,68 @@ final class PipelineRunControllerTest extends TestCase
                     'status' => 'completed',
                 ],
                 'error' => null,
+                'meta' => [],
+            ]);
+    }
+
+    public function test_middleware_stack_rejects_rate_limit_before_idempotency_replay(): void
+    {
+        $this->app->singleton(PipelineFactory::class, function () {
+            return new LaravelPipelineFactory([
+                'http' => fn () => new class implements Pipeline {
+                    public function name(): string
+                    {
+                        return 'http';
+                    }
+
+                    public function run(PipelineContext $context): PipelineResult
+                    {
+                        return PipelineResult::success();
+                    }
+                },
+            ]);
+        });
+
+        $headers = [
+            'X-API-KEY' => 'secret',
+            'Idempotency-Key' => 'stack-1',
+        ];
+
+        $this->postJson('/api/v1/pipelines/http/run', ['job_id' => 'http-stack-1'], $headers)
+            ->assertOk();
+        $this->postJson('/api/v1/pipelines/http/run', ['job_id' => 'http-stack-2'], $headers)
+            ->assertOk();
+
+        $this->postJson('/api/v1/pipelines/http/run', ['job_id' => 'http-stack-3'], $headers)
+            ->assertStatus(429);
+    }
+
+    public function test_middleware_stack_requires_api_key_before_throttle(): void
+    {
+        $this->app->singleton(PipelineFactory::class, function () {
+            return new LaravelPipelineFactory([
+                'http' => fn () => new class implements Pipeline {
+                    public function name(): string
+                    {
+                        return 'http';
+                    }
+
+                    public function run(PipelineContext $context): PipelineResult
+                    {
+                        return PipelineResult::success();
+                    }
+                },
+            ]);
+        });
+
+        $this->postJson('/api/v1/pipelines/http/run', ['job_id' => 'http-stack-4'])
+            ->assertStatus(401)
+            ->assertJson([
+                'data' => null,
+                'error' => [
+                    'code' => 'unauthorized',
+                    'message' => 'Invalid API key',
+                ],
                 'meta' => [],
             ]);
     }
