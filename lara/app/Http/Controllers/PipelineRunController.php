@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Execution\QueuedJobSubmission;
 use App\Http\Requests\RunPipelineRequest;
 use App\Http\Responses\ApiResponse;
 use App\Http\Responses\ErrorResponse;
@@ -16,6 +17,34 @@ use Illuminate\Http\Request;
 
 final class PipelineRunController extends Controller
 {
+    public function queue(
+        string $name,
+        Request $httpRequest,
+        RunPipelineRequest $request,
+        PipelineFactory $pipelines,
+        QueuedJobSubmission $submission
+    ): JsonResponse {
+        try {
+            $pipeline = $pipelines->make($name);
+        } catch (InvalidArgumentException $e) {
+            $response = response()->json(ApiResponse::error(
+                new ErrorResponse(
+                    code: 'pipeline_not_found',
+                    message: $e->getMessage()
+                )
+            ), 404);
+            return $this->withDeprecationHeaders($httpRequest, $response);
+        }
+
+        $jobId = new JobId($request->jobId());
+        $submission->submit(new Job($jobId, $pipeline));
+        $response = response()->json(ApiResponse::success(
+            new JobResponse($jobId->value(), 'queued')
+        ), 202);
+
+        return $this->withDeprecationHeaders($httpRequest, $response);
+    }
+
     public function run(
         string $name,
         Request $httpRequest,

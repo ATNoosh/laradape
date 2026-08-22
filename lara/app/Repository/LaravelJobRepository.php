@@ -5,6 +5,7 @@ namespace App\Repository;
 use App\Models\JobModel;
 use Core\Execution\JobRepository;
 use Core\Job\Job;
+use Core\Job\JobStatus;
 use Core\ValueObject\JobId;
 use Core\Pipeline\PipelineFactory;
 use RuntimeException;
@@ -46,5 +47,24 @@ final class LaravelJobRepository implements JobRepository
     public function exists(JobId $id): bool
     {
         return JobModel::whereKey($id->value())->exists();
+    }
+
+    public function updateStatus(JobId $id, JobStatus $status): void
+    {
+        $updated = JobModel::whereKey($id->value())->update([
+            'status' => $status->value,
+            'updated_at' => now(),
+        ]);
+
+        if ($updated === 0 && ! $this->exists($id)) {
+            throw new RuntimeException("Job not found: {$id->value()}");
+        }
+    }
+
+    public function status(JobId $id): ?JobStatus
+    {
+        $status = JobModel::whereKey($id->value())->value('status');
+
+        return $status === null ? null : JobStatus::from($status);
     }
 }

@@ -3,6 +3,7 @@
 namespace Core\Execution;
 
 use Core\Job\Job;
+use Core\Job\JobStatus;
 use Core\ValueObject\JobId;
 
 interface JobRepository
@@ -13,4 +14,7 @@ interface JobRepository
 
     public function exists(JobId $id): bool;
 
+    public function status(JobId $id): ?JobStatus;
+
+    public function updateStatus(JobId $id, JobStatus $status): void;
 }

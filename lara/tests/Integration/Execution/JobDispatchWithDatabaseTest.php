@@ -47,6 +47,7 @@ class JobDispatchWithDatabaseTest extends TestCase
         $this->assertDatabaseHas('jobs', [
             'id' => '1',
             'pipeline_name' => 'dummy',
+            'status' => 'completed',
         ]);
     }
 }

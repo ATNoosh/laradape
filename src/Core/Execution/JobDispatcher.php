@@ -3,6 +3,7 @@
 namespace Core\Execution;
 
 use Core\Job\Job;
+use Core\Job\JobStatus;
 use Core\Pipeline\PipelineFactory;
 
 final class JobDispatcher implements JobDispatcherInterface
@@ -20,6 +21,20 @@ final class JobDispatcher implements JobDispatcherInterface
 
         $executor = $this->executorFactory->make();
 
-        return $executor->execute($job);
+        try {
+            $report = $executor->execute($job);
+        } catch (\Throwable $exception) {
+            $this->jobs->updateStatus($job->id(), JobStatus::Failed);
+            throw $exception;
+        }
+
+        if (! $report->isSkipped()) {
+            $this->jobs->updateStatus(
+                $job->id(),
+                $report->isSuccessful() ? JobStatus::Completed : JobStatus::Failed
+            );
+        }
+
+        return $report;
     }
 }

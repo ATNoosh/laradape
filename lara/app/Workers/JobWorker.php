@@ -6,6 +6,7 @@ use Core\Execution\Executor;
 use Core\ValueObject\JobId;
 use Core\Execution\JobReport;
 use Core\Execution\JobRepository;
+use Core\Job\JobStatus;
 
 final class JobWorker
 {
@@ -17,7 +18,22 @@ final class JobWorker
     public function run(JobId $jobId): JobReport
     {
         $job = $this->jobs->get($jobId);
+        $this->jobs->updateStatus($jobId, JobStatus::Running);
 
-        return $this->executor->execute($job);
+        try {
+            $report = $this->executor->execute($job);
+        } catch (\Throwable $exception) {
+            $this->jobs->updateStatus($jobId, JobStatus::Failed);
+            throw $exception;
+        }
+
+        if (! $report->isSkipped()) {
+            $this->jobs->updateStatus(
+                $jobId,
+                $report->isSuccessful() ? JobStatus::Completed : JobStatus::Failed
+            );
+        }
+
+        return $report;
     }
 }

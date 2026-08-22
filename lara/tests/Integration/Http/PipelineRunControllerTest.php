@@ -5,6 +5,8 @@ namespace Tests\Integration\Http;
 use App\Http\Controllers\PipelineRunController;
 use App\Http\Middleware\ApiKeyAuth;
 use App\Http\Middleware\IdempotencyKey;
+use App\Jobs\ExecuteQueuedJob;
+use App\Http\Controllers\JobStatusController;
 use App\Pipeline\LaravelPipelineFactory;
 use Core\Repository\JobExecutionStore;
 use Core\Pipeline\Pipeline;
@@ -14,6 +16,7 @@ use Core\Pipeline\PipelineResult;
 use Core\Pipeline\PipelineFactory;
 use Core\ValueObject\JobId;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Queue;
 use Orchestra\Testbench\TestCase;
 
 final class PipelineRunControllerTest extends TestCase
@@ -41,7 +44,10 @@ final class PipelineRunControllerTest extends TestCase
 
         $router->middleware([ApiKeyAuth::class, "throttle:{$rateLimit}", IdempotencyKey::class])->group(function () use ($router) {
             $router->post('/pipelines/{name}/run', [PipelineRunController::class, 'run']);
+            $router->post('/pipelines/{name}/queue', [PipelineRunController::class, 'queue']);
             $router->post('/api/v1/pipelines/{name}/run', [PipelineRunController::class, 'run']);
+            $router->post('/api/v1/pipelines/{name}/queue', [PipelineRunController::class, 'queue']);
+            $router->get('/api/v1/jobs/{id}', [JobStatusController::class, 'show']);
         });
     }
 
@@ -99,6 +105,100 @@ final class PipelineRunControllerTest extends TestCase
         $this->assertDatabaseHas('jobs', [
             'id' => 'http-1',
             'pipeline_name' => 'http',
+        ]);
+    }
+
+    public function test_pipeline_queue_endpoint_persists_and_enqueues_job(): void
+    {
+        Queue::fake();
+
+        $this->app->singleton(PipelineFactory::class, function () {
+            return new LaravelPipelineFactory([
+                'http' => fn () => new class implements Pipeline {
+                    public function name(): string
+                    {
+                        return 'http';
+                    }
+
+                    public function run(PipelineContext $context): PipelineResult
+                    {
+                        return PipelineResult::success();
+                    }
+                },
+            ]);
+        });
+
+        $response = $this->postJson('/api/v1/pipelines/http/queue', [
+            'job_id' => 'queued-1',
+        ], ['X-API-KEY' => 'secret']);
+
+        $response->assertStatus(202)
+            ->assertJson([
+                'data' => [
+                    'job_id' => 'queued-1',
+                    'status' => 'queued',
+                    'message' => null,
+                    'meta' => [],
+                ],
+                'error' => null,
+                'meta' => [],
+            ]);
+
+        $this->assertDatabaseHas('jobs', [
+            'id' => 'queued-1',
+            'pipeline_name' => 'http',
+            'status' => 'pending',
+        ]);
+
+        Queue::assertPushed(ExecuteQueuedJob::class, function (ExecuteQueuedJob $queued): bool {
+            return $queued->jobId === 'queued-1';
+        });
+    }
+
+    public function test_job_status_endpoint_returns_current_status(): void
+    {
+        Queue::fake();
+
+        $this->app->singleton(PipelineFactory::class, function () {
+            return new LaravelPipelineFactory([
+                'http' => fn () => new class implements Pipeline {
+                    public function name(): string
+                    {
+                        return 'http';
+                    }
+
+                    public function run(PipelineContext $context): PipelineResult
+                    {
+                        return PipelineResult::success();
+                    }
+                },
+            ]);
+        });
+
+        $this->postJson('/api/v1/pipelines/http/queue', [
+            'job_id' => 'status-1',
+        ], ['X-API-KEY' => 'secret'])->assertStatus(202);
+
+        $this->getJson('/api/v1/jobs/status-1', [
+            'X-API-KEY' => 'secret',
+        ])->assertOk()->assertJson([
+            'data' => [
+                'job_id' => 'status-1',
+                'status' => 'pending',
+            ],
+            'error' => null,
+        ]);
+    }
+
+    public function test_job_status_endpoint_returns_not_found_for_unknown_job(): void
+    {
+        $this->getJson('/api/v1/jobs/missing', [
+            'X-API-KEY' => 'secret',
+        ])->assertNotFound()->assertJson([
+            'data' => null,
+            'error' => [
+                'code' => 'job_not_found',
+            ],
         ]);
     }
 
