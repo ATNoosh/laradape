@@ -37,7 +37,7 @@ final class PipelineRunController extends Controller
         }
 
         $jobId = new JobId($request->jobId());
-        $submission->submit(new Job($jobId, $pipeline));
+        $submission->submit(new Job($jobId, $pipeline, payload: $request->payload()));
         $response = response()->json(ApiResponse::success(
             new JobResponse($jobId->value(), 'queued')
         ), 202);
@@ -66,7 +66,8 @@ final class PipelineRunController extends Controller
 
         $job = new Job(
             new JobId($request->jobId()),
-            $pipeline
+            $pipeline,
+            payload: $request->payload()
         );
 
         $report = $dispatcher->dispatch($job);

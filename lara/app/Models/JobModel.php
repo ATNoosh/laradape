@@ -12,7 +12,8 @@ final class JobModel extends Model
         'id',
         'pipeline_name',
         'status',
-        'queue'
+        'queue',
+        'payload'
     ];
 
     public $incrementing = false;

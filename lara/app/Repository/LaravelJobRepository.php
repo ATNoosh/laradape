@@ -8,6 +8,7 @@ use Core\Job\Job;
 use Core\Job\JobStatus;
 use Core\ValueObject\JobId;
 use Core\Pipeline\PipelineFactory;
+use App\Pipeline\PayloadAwarePipeline;
 use RuntimeException;
 
 final class LaravelJobRepository implements JobRepository
@@ -24,6 +25,7 @@ final class LaravelJobRepository implements JobRepository
                 'pipeline_name' => $job->pipeline()->name(),
                 'status' => 'pending',
                 'queue' => $job->queue(),
+                'payload' => json_encode($job->payload(), JSON_THROW_ON_ERROR),
                 'created_at' => now(),
                 'updated_at' => now(),
             ]
@@ -38,9 +40,22 @@ final class LaravelJobRepository implements JobRepository
             throw new RuntimeException("Job not found: {$id->value()}");
         }
 
+        $pipeline = $this->pipelines->make($model->pipeline_name);
+
+        if ($pipeline instanceof PayloadAwarePipeline) {
+            $pipeline = $pipeline->withPayload(
+                $model->payload === null
+                    ? []
+                    : json_decode($model->payload, true, 512, JSON_THROW_ON_ERROR)
+            );
+        }
+
         return new Job(
             new JobId($model->id),
-            $this->pipelines->make($model->pipeline_name)
+            $pipeline,
+            payload: $model->payload === null
+                ? []
+                : json_decode($model->payload, true, 512, JSON_THROW_ON_ERROR)
         );
     }
 

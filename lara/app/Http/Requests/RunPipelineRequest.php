@@ -19,6 +19,7 @@ final class RunPipelineRequest extends FormRequest
     {
         return [
             'job_id' => ['required', 'string'],
+            'payload' => ['sometimes', 'array'],
         ];
     }
 
@@ -38,5 +39,11 @@ final class RunPipelineRequest extends FormRequest
     public function jobId(): string
     {
         return $this->input('job_id');
+    }
+
+    /** @return array<string, mixed> */
+    public function payload(): array
+    {
+        return (array) $this->input('payload', []);
     }
 }

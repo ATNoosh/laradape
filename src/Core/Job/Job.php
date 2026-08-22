@@ -11,7 +11,8 @@ final class Job
         private JobId $id,
         private Pipeline $pipeline,
         private string $state = JobState::PENDING,
-        private string $queue = 'default'
+        private string $queue = 'default',
+        private array $payload = []
     ) {}
 
     public function id(): JobId
@@ -32,5 +33,11 @@ final class Job
     public function queue(): string
     {
         return $this->queue;
+    }
+
+    /** @return array<string, mixed> */
+    public function payload(): array
+    {
+        return $this->payload;
     }
 }
