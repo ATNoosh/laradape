@@ -24,14 +24,15 @@ final class JobDispatcher implements JobDispatcherInterface
         try {
             $report = $executor->execute($job);
         } catch (\Throwable $exception) {
-            $this->jobs->updateStatus($job->id(), JobStatus::Failed);
+            $this->jobs->updateStatus($job->id(), JobStatus::Failed, $exception->getMessage());
             throw $exception;
         }
 
         if (! $report->isSkipped()) {
             $this->jobs->updateStatus(
                 $job->id(),
-                $report->isSuccessful() ? JobStatus::Completed : JobStatus::Failed
+                $report->isSuccessful() ? JobStatus::Completed : JobStatus::Failed,
+                $report->result()?->message()
             );
         }
 

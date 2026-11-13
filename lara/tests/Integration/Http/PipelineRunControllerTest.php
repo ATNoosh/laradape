@@ -7,6 +7,7 @@ use App\Http\Middleware\ApiKeyAuth;
 use App\Http\Middleware\IdempotencyKey;
 use App\Jobs\ExecuteQueuedJob;
 use App\Http\Controllers\JobStatusController;
+use App\Http\Controllers\UpgradeQueueController;
 use App\Pipeline\LaravelPipelineFactory;
 use Core\Repository\JobExecutionStore;
 use Core\Pipeline\Pipeline;
@@ -48,6 +49,9 @@ final class PipelineRunControllerTest extends TestCase
             $router->post('/api/v1/pipelines/{name}/run', [PipelineRunController::class, 'run']);
             $router->post('/api/v1/pipelines/{name}/queue', [PipelineRunController::class, 'queue']);
             $router->get('/api/v1/jobs/{id}', [JobStatusController::class, 'show']);
+            $router->get('/api/v1/jobs/{id}/chain', [JobStatusController::class, 'chain']);
+            $router->post('/api/v1/jobs/{id}/cancel', [JobStatusController::class, 'cancel']);
+            $router->post('/api/v1/upgrades/queue', [UpgradeQueueController::class, 'store']);
         });
     }
 
@@ -102,7 +106,7 @@ final class PipelineRunControllerTest extends TestCase
             ->assertHeader('Sunset', '2026-12-31')
             ->assertHeader('Link', '</api/v1/pipelines/{name}/run>; rel="successor-version"');
 
-        $this->assertDatabaseHas('jobs', [
+        $this->assertDatabaseHas('execution_jobs', [
             'id' => 'http-1',
             'pipeline_name' => 'http',
         ]);
@@ -144,7 +148,7 @@ final class PipelineRunControllerTest extends TestCase
                 'meta' => [],
             ]);
 
-        $this->assertDatabaseHas('jobs', [
+        $this->assertDatabaseHas('execution_jobs', [
             'id' => 'queued-1',
             'pipeline_name' => 'http',
             'status' => 'pending',
@@ -185,6 +189,7 @@ final class PipelineRunControllerTest extends TestCase
             'data' => [
                 'job_id' => 'status-1',
                 'status' => 'pending',
+                'chain' => null,
             ],
             'error' => null,
         ]);
@@ -200,6 +205,115 @@ final class PipelineRunControllerTest extends TestCase
                 'code' => 'job_not_found',
             ],
         ]);
+    }
+
+    public function test_upgrade_queue_endpoint_validates_and_persists_upgrade_payload(): void
+    {
+        $this->withoutMiddleware(\Illuminate\Routing\Middleware\ThrottleRequests::class);
+        Queue::fake();
+
+        $response = $this->postJson('/api/v1/upgrades/queue', [
+            'job_id' => 'upgrade-queue-1',
+            'project_path' => 'C:/projects/legacy-app',
+            'from' => '7.4',
+            'to' => '8.3',
+            'dry_run' => true,
+            'options' => [
+                'engine' => 'regex',
+                'ai' => 'off',
+                'exakat' => 'off',
+            ],
+        ], ['X-API-KEY' => 'secret']);
+
+        $response->assertStatus(202)->assertJson([
+            'data' => [
+                'job_id' => 'upgrade-queue-1',
+                'status' => 'queued',
+            ],
+            'error' => null,
+        ]);
+
+        $this->assertDatabaseHas('execution_jobs', [
+            'id' => 'upgrade-queue-1',
+            'pipeline_name' => 'pupgrader.upgrade.hop',
+            'status' => 'pending',
+        ]);
+
+        $payload = json_decode(
+            (string) $this->app['db']->table('execution_jobs')->where('id', 'upgrade-queue-1')->value('payload'),
+            true,
+            512,
+            JSON_THROW_ON_ERROR
+        );
+
+        $this->assertSame('7.4', $payload['from']);
+        $this->assertSame('8.3', $payload['to']);
+        $this->assertTrue($payload['dry_run']);
+        $this->assertSame('regex', $payload['options']['engine']);
+        $this->assertSame('upgrade-queue-1', $payload['root_job_id']);
+        $this->assertNull($payload['parent_job_id']);
+        $this->assertSame(0, $payload['hop_index']);
+        $this->assertSame(4, $payload['hop_count']);
+
+        $this->getJson('/api/v1/jobs/upgrade-queue-1/chain', [
+            'X-API-KEY' => 'secret',
+        ])->assertOk()
+            ->assertJsonPath('data.root_job_id', 'upgrade-queue-1')
+            ->assertJsonPath('data.status', 'pending')
+            ->assertJsonPath('data.total_hops', 4)
+            ->assertJsonPath('data.completed_hops', 0)
+            ->assertJsonPath('data.current_hop', 0);
+
+        $this->postJson('/api/v1/jobs/upgrade-queue-1/cancel', [], [
+            'X-API-KEY' => 'secret',
+        ])->assertStatus(202)
+            ->assertJsonPath('data.status', 'cancelled')
+            ->assertJsonPath('data.cancelled_hops', 1);
+
+        $this->assertDatabaseHas('execution_jobs', [
+            'id' => 'upgrade-queue-1',
+            'status' => 'cancelled',
+        ]);
+    }
+
+    public function test_upgrade_queue_endpoint_rejects_invalid_payload(): void
+    {
+        $this->postJson('/api/v1/upgrades/queue', [
+            'job_id' => 'invalid-upgrade',
+            'project_path' => 'C:/projects/legacy-app',
+            'from' => '7.4',
+            'to' => '8.3',
+            'options' => ['engine' => 'unsupported'],
+        ], ['X-API-KEY' => 'secret'])
+            ->assertStatus(422)
+            ->assertJsonPath('error.code', 'validation_error');
+    }
+
+    public function test_upgrade_queue_endpoint_applies_and_snapshots_profile(): void
+    {
+        $this->withoutMiddleware(\Illuminate\Routing\Middleware\ThrottleRequests::class);
+        Queue::fake();
+
+        $this->postJson('/api/v1/upgrades/queue', [
+            'job_id' => 'profile-queue-1',
+            'project_path' => 'C:/projects/legacy-app',
+            'from' => '7.4',
+            'to' => '8.3',
+            'profile' => 'conservative',
+        ], ['X-API-KEY' => 'secret'])->assertStatus(202);
+
+        $payload = json_decode(
+            (string) $this->app['db']->table('execution_jobs')->where('id', 'profile-queue-1')->value('payload'),
+            true,
+            512,
+            JSON_THROW_ON_ERROR
+        );
+
+        $this->assertSame('conservative', $payload['profile']);
+        $this->assertSame('hybrid', $payload['options']['engine']);
+        $this->assertSame('off', $payload['options']['ai']);
+        $this->assertSame('hybrid', $payload['profile_configuration']['engine']);
+        $this->assertSame('off', $payload['profile_configuration']['ai']['mode']);
     }
 
     public function test_versioned_pipeline_run_endpoint_dispatches_job(): void
@@ -239,7 +353,7 @@ final class PipelineRunControllerTest extends TestCase
             ->assertHeaderMissing('Sunset')
             ->assertHeaderMissing('Link');
 
-        $this->assertDatabaseHas('jobs', [
+        $this->assertDatabaseHas('execution_jobs', [
             'id' => 'http-1-v1',
             'pipeline_name' => 'http',
         ]);

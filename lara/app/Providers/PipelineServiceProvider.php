@@ -6,6 +6,7 @@ use App\Execution\LoggingExecutorObserver;
 use App\Execution\LaravelJobDispatcher;
 use App\Pipeline\LaravelPipelineFactory;
 use App\Pipeline\PupgraderUpgradePipeline;
+use App\Pipeline\PupgraderUpgradeHopPipeline;
 use Core\Execution\Executor;
 use Core\Execution\ExecutorFactory;
 use Core\Execution\ExecutorObserver;
@@ -13,11 +14,15 @@ use Core\Execution\JobDispatcherInterface;
 use Core\Pipeline\PipelineFactory;
 use Illuminate\Support\ServiceProvider;
 use Pupgrader\UpgradeRunner;
+use Pupgrader\Pipeline\UpgradePipelineFactory;
+use Pupgrader\Reporting\ProgressReporter;
+use App\Execution\DatabaseProgressReporter;
 
 final class PipelineServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
+        $this->app->singleton(ProgressReporter::class, DatabaseProgressReporter::class);
         /*
          |------------------------------------------------------------
          | Job Dispatcher
@@ -48,6 +53,11 @@ final class PipelineServiceProvider extends ServiceProvider
                 'pupgrader.upgrade' => fn () => new PupgraderUpgradePipeline(
                     payload: [],
                     runner: $app->make(UpgradeRunner::class)
+                ),
+                'pupgrader.upgrade.hop' => fn () => new PupgraderUpgradeHopPipeline(
+                    payload: [],
+                    factory: $app->make(UpgradePipelineFactory::class),
+                    progressReporter: $app->make(ProgressReporter::class),
                 ),
             ]);
         });

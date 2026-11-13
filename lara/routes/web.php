@@ -1,21 +1,38 @@
 <?php
 
+use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DashboardJobController;
+use App\Http\Controllers\UpgradeProfileController;
+use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\PipelineRunController;
-use App\Http\Controllers\JobStatusController;
-use App\Http\Middleware\ApiKeyAuth;
-use App\Http\Middleware\IdempotencyKey;
+use Inertia\Inertia;
 
 Route::get('/', function () {
-    return view('welcome');
+    return Inertia::render('Welcome', [
+        'canLogin' => Route::has('login'),
+        'canRegister' => Route::has('register'),
+        'laravelVersion' => Application::VERSION,
+        'phpVersion' => PHP_VERSION,
+    ]);
 });
 
-$rateLimit = config('jobs.http.rate_limit', '60,1');
+Route::get('/dashboard', DashboardController::class)
+    ->middleware('auth')
+    ->name('dashboard');
 
-Route::middleware([ApiKeyAuth::class, "throttle:{$rateLimit}", IdempotencyKey::class])->group(function () {
-    Route::post('/pipelines/{name}/run', [PipelineRunController::class, 'run']);
-    Route::post('/pipelines/{name}/queue', [PipelineRunController::class, 'queue']);
-    Route::post('/api/v1/pipelines/{name}/run', [PipelineRunController::class, 'run']);
-    Route::post('/api/v1/pipelines/{name}/queue', [PipelineRunController::class, 'queue']);
-    Route::get('/api/v1/jobs/{id}', [JobStatusController::class, 'show']);
+Route::get('/dashboard/jobs/{id}', DashboardJobController::class)
+    ->middleware('auth')
+    ->name('dashboard.jobs.show');
+
+Route::resource('profiles', UpgradeProfileController::class)
+    ->except(['show'])
+    ->middleware('auth');
+
+Route::middleware('auth')->group(function () {
+    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
+    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
+
+require __DIR__.'/auth.php';

@@ -8,15 +8,19 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('jobs', function (Blueprint $table): void {
-            $table->text('payload')->nullable()->after('pipeline_name');
-        });
+        if (! Schema::hasColumn('execution_jobs', 'payload')) {
+            Schema::table('execution_jobs', function (Blueprint $table): void {
+                $table->text('payload')->nullable()->after('pipeline_name');
+            });
+        }
     }
 
     public function down(): void
     {
-        Schema::table('jobs', function (Blueprint $table): void {
-            $table->dropColumn('payload');
-        });
+        if (Schema::hasColumn('execution_jobs', 'payload')) {
+            Schema::table('execution_jobs', function (Blueprint $table): void {
+                $table->dropColumn('payload');
+            });
+        }
     }
 };

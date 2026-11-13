@@ -22,4 +22,13 @@ final class QueuedJobSubmission
 
         return $job->id();
     }
+
+    public function submitIfMissing(Job $job): JobId
+    {
+        if ($this->jobs->saveIfMissing($job)) {
+            $this->bus->dispatch((new ExecuteQueuedJob($job->id()->value()))->onQueue($job->queue()));
+        }
+
+        return $job->id();
+    }
 }

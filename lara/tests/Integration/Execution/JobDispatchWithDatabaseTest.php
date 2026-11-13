@@ -44,7 +44,7 @@ class JobDispatchWithDatabaseTest extends TestCase
         $this->assertTrue($report->result()->isCompleted());
 
         // Assert – persistence
-        $this->assertDatabaseHas('jobs', [
+        $this->assertDatabaseHas('execution_jobs', [
             'id' => '1',
             'pipeline_name' => 'dummy',
             'status' => 'completed',

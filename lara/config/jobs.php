@@ -1,7 +1,8 @@
 <?php
 
 return [
-    'timeout_seconds' => 30,
+    // A real project may need several minutes per upgrade hop.
+    'timeout_seconds' => (int) env('JOB_TIMEOUT_SECONDS', 600),
 
     'retry' => [
         'max_attempts' => 3,
